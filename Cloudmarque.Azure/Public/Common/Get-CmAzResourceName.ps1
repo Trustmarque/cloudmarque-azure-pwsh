@@ -177,12 +177,24 @@
 
       $generatedName = $nameSegments -Join $gen.separator
 
+      if ($resourceConvention.regexRemove){
+        $regexRemove = $resourceConvention.regexRemove
+        Write-Verbose "Removing ($regexRemove) from resource name..";
+        $generatedName = $generatedName -replace $regexRemove, ''
+      }
+
       if ($MaxLength -Gt 0) {
         $length = if ($generatedName.Length -Gt $MaxLength) { $MaxLength } else { $generatedName.Length }
         $generatedName = $generatedName.Substring(0, $length)
       }
 
+      if ($generatedName.Substring($generatedName.Length-1).Equals("-")){
+        Write-Verbose "Generated resource name ($generatedName) ends in hyphen (not allowed for some resources) - removing the hyphen..";
+        $generatedName = $generatedName.Substring(0, $generatedName.Length-1)
+      }
+      
       $generatedName
+
     }
     catch
     {

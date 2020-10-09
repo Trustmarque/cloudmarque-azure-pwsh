@@ -91,9 +91,11 @@
 				$ProjectConfirmation = Read-Host -Prompt "Create new project root? [y/n] (Default: n)"
 			}
 
-			if ($ProjectConfirmation -eq "y") {
-				New-CmAzProject -Project $ProjectRoot
-			}
+			# JB comment out project as developing level-x setting in cloudmarque-config
+			# TODO workout how best to create level0,1,2 baseline settings: from cloudmarque-config or cloudmarque.azure\resources
+			# if ($ProjectConfirmation -eq "y") {
+			# 	New-CmAzProject -Project $ProjectRoot
+			# }
 
 			$namingFile = "$ProjectRoot/_names/tokens.yml"
 			$namingConventions = Get-CmAzSettingsFile -Path $namingFile
