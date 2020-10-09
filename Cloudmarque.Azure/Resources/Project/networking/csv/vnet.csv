@@ -1,1 +1,1 @@
-resourceGroupName,location,vnetName,addressSpace,subnetName,cidr,networkSecurityGroup,routeTable
+resourceGroupName,location,vnetName,addressSpace,subnetName,cidr,networkSecurityGroup,routeTable,servicePublish,resourceGroupservicePublish

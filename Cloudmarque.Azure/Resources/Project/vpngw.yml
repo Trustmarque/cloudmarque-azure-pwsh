@@ -1,17 +1,29 @@
-resourceGroupTag:
 location: East US
-
+service:
+  dependencies:
+    resourceGroup:
+    keyvault:
+    vnet:
+  publish:
+    publicIp:
+    virtualNetworkGateway:
+    localNetworkGateway:
 vpnGw:
   - gatewayName:
-    vnetTag:
+    service:
+      dependencies:
+        keyVault:             # Key Vault service tag
+        vnet:
+      publish:
+        publicIp:
+        virtualNetworkGateway:
+        localNetworkGateway:
     sku:
     gatewaySubnetPrefix:      # Optional: Required only if you dont have GatewaySubnet already in the Vnet.
     p2s:
       vpnAddressPool:         # VPN IP address pool ex: 172.0.0.0/16
-      keyVaultTag:            # Key Vault service tag
       rootCertificateName:    # Name of uploaded certificate in Key Vault
     s2s:
-      keyVaultTag:
       keyVaultSecret:         # Name of secret in Key Vault
       clientSitePublicIP:     # On site VPN Gateway public IP
       cidrBlocks: []

@@ -62,7 +62,7 @@ function Set-CmAzSecurityCentre {
                 $SettingsObject.EnableUkNHS = $false
             }
 
-            $workspace = Get-CmAzService -Service "core.logging.loganalytics" -Region $SettingsObject.Location -ThrowIfUnavailable
+			$workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -ThrowIfUnavailable -ThrowIfMultiple
 
             Write-Verbose "Deploying security centre settings..."
             New-AzDeployment `

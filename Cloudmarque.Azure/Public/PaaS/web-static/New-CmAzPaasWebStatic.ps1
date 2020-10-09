@@ -48,7 +48,8 @@
       [parameter(Mandatory=$true, ParameterSetName = "Settings File")]
       [String]$SettingsFile,
       [parameter(Mandatory=$true, ParameterSetName = "Settings Object")]
-      [Object]$SettingsObject
+      [Object]$SettingsObject,
+	  [String]$TagSettingsFile
     )
 
 	$ErrorActionPreference = "Stop"
@@ -85,7 +86,8 @@
 		$storageName = Get-CmAzResourceName -Resource "StorageAccount" -Architecture "PaaS" -Region $SettingsObject.Location -Name $SettingsObject.Name -MaxLength 24
 
 		Write-Verbose "Deploying resource group: $resourceGroupName..."
-		New-AzResourceGroup -Name $resourceGroupName -Location $SettingsObject.Location -Force > $null
+		$resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.resourceGroup }
+		New-AzResourceGroup -Name $resourceGroupName -Location $SettingsObject.Location -Tag $resourceGroupServiceTag -Force > $null
 
 		$providerNamespace = "Microsoft.CDN"
 
@@ -98,16 +100,20 @@
 		New-AzResourceGroupDeployment `
 			-ResourceGroupName $resourceGroupName `
 			-TemplateFile "$PSScriptRoot/New-CmAzPaasWebStatic.Storage.json" `
-			-storageAccountName $storageName `
-			-location $SettingsObject.Location > $null
+			-StorageAccountName $storageName `
+			-Location $SettingsObject.Location `
+			-StorageService $SettingsObject.service.publish.storage `
+			-Force > $null
 
 		Write-Verbose "Deploying cdn: $profileName..."
 		New-AzResourceGroupDeployment `
 			-ResourceGroupName $resourceGroupName `
 			-TemplateFile "$PSScriptRoot/New-CmAzPaasWebStatic.Cdn.json" `
-			-storageName $storageName `
-			-endpointName $endpointName `
-			-profileName $profileName > $null
+			-StorageName $storageName `
+			-EndpointName $endpointName `
+			-ProfileName $profileName `
+			-ServiceContainer $SettingsObject.service.publish `
+			-Force > $null
 
 		Write-Verbose "Writng cdn rules..."
 		$ruleOrder = 0
@@ -176,7 +182,10 @@
 		Write-Verbose "Purging cdn..."
 		Unpublish-AzCdnEndpointContent -EndpointName $endpointName -ProfileName $profileName -ResourceGroupName $resourceGroupName -PurgeContent "/*"
 
+		Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $resourceGroupName
+
 		Write-Verbose "Finished!"
+		
 		@{
 			ResourceGroupName = $resourceGroupName
 			ProfileName = $profileName

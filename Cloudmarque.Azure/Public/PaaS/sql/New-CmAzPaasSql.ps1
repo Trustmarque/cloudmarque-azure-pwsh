@@ -33,7 +33,8 @@
 		[parameter(Mandatory = $true, ParameterSetName = "Settings File")]
 		[String]$SettingsFile,
 		[parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
-		[Object]$SettingsObject
+		[Object]$SettingsObject,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -49,53 +50,73 @@
 				Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
 			}
 
-			$resourceGroup = Get-CmAzService -Service $SettingsObject.resourceGroupServiceTag -IsResourceGroup -ThrowIfUnavailable
-			if (!$SettingsObject.workSpaceServiceTag) {
+			$resourceGroup = Get-CmAzService -Service $SettingsObject.service.dependencies.resourceGroup -IsResourceGroup -ThrowIfUnavailable -ThrowIfMultiple
+
+			if (!$SettingsObject.service.dependencies.workspace) {
 				$workspace = @{"Name" = ""; "ResourceId" = ""; "Location" = "" }
 			}
 			else {
 				Write-Verbose "Fetching workspace.."
-				$workspace = Get-CmAzService -Service $SettingsObject.workSpaceServiceTag
+				$workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -ThrowIfUnavailable -ThrowIfMultiple
 			}
 
 			if (!$SettingsObject.logRetentionPeriodInDays) {
 				$logRetentionPeriodInDays = 30
 			}
-			else{
+			else {
 				$logRetentionPeriodInDays = $SettingsObject.logRetentionPeriodInDays
 			}
 
 			[system.Collections.ArrayList]$sqlObjectArray = @()
 			[system.Collections.ArrayList]$sqlObjectArraySharedServer = @()
-			$allSqlServerNames = $SettingsObject.sqlConfig.serverName
+			[system.Collections.ArrayList]$resourcesToSet = @()
+			[system.Collections.ArrayList]$UniqueSqlServerNames = @()
+
+			Write-Verbose "Starting to build object for deployment.."
 
 			$SettingsObject.sqlConfig | ForEach-Object {
 
-				[System.Collections.ArrayList] $databases = @()
+				[System.Collections.ArrayList] $databaseCollection = @()
 
-				if ($_.databaseNames) {
+				Write-Verbose "Working on $($_.serverName)"
+				if ($_.databases) {
 
-					foreach ($database in $_.databaseNames) {
-						$databases.Add((Get-CmAzResourceName -Resource "AzureSQLDatabase" -Architecture "PaaS" -Region $SettingsObject.Location -Name $database)) > $Null
+					foreach ($database in $_.databases) {
+
+						if ($database -is [string]) {
+							$databaseObject = @{
+								"name" = Get-CmAzResourceName -Resource "AzureSQLDatabase" -Architecture "PaaS" -Region $SettingsObject.Location -Name $database
+							}
+							Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "database" -ResourceServiceContainer $databaseObject
+							$databaseCollection.Add($databaseObject) > $Null
+						}
+
+						if ($database -is [Hashtable]) {
+							$database.name = Get-CmAzResourceName -Resource "AzureSQLDatabase" -Architecture "PaaS" -Region $SettingsObject.Location -Name $database.name
+							Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "database" -ResourceServiceContainer $database
+							$databaseCollection.Add($database) > $Null
+						}
 					}
-
 				}
 				else {
-					$databases.Add((Get-CmAzResourceName -Resource "AzureSQLDatabase" -Architecture "PaaS" -Region $SettingsObject.Location -Name $_.serverName)) > $Null
+					$databaseObject = @{
+						"name" = Get-CmAzResourceName -Resource "AzureSQLDatabase" -Architecture "PaaS" -Region $SettingsObject.Location -Name $_.serverName;
+					}
+					Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "database" -ResourceServiceContainer $databaseObject
+					$databaseCollection.Add($databaseObject) > $Null
 				}
 
-				$keyVaultName = Get-CmAzService -Service $_.keyvault.serviceTag
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "keyvault" -ResourceServiceContainer $_ -IsDependency
+				$keyVault = Get-CmAzService -Service $SettingsObject.service.dependencies.keyvault -ThrowIfUnavailable -ThrowIfMultiple
 
-				$password = (Get-AzKeyVaultSecret -VaultName $keyVaultName.name -Name $_.keyvault.passwordSecretName).SecretValue
 				$serverName = Get-CmAzResourceName -Resource "AzureSQLDatabaseserver" -Architecture "PaaS" -Region $SettingsObject.Location -Name $_.serverName
 
-				$serverNameCheck = $_.serverName
-
-				if ($_.type -eq "elasticpool" -and (($allSqlServerNames | Where-Object { $_ -match $serverNameCheck }).count -gt 1)) {
+				if ($UniqueSqlServerNames -contains $_.serverName) {
 					$sharedServer = $true
 				}
 				else {
 					$sharedServer = $false
+					$UniqueSqlServerNames.add($_.serverName) > $Null
 				}
 
 				$dbFamily = switch ($_.family) {
@@ -115,40 +136,48 @@
 					default { Write-Error "Please provide correct database family name. Choose from azuresql|postgressql|mariadb|mysql" }
 				}
 
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "server" -ResourceServiceContainer $_
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "elasticPool" -ResourceServiceContainer $_
+
 				if (!$_.firewallRules) {
-					$_.firewallRules = @{
+					$_.firewallRules = @(@{
 						"startIpAddress" = "0.0.0.0";
-						"endIpAddress" = "255.255.255.255"
-					}
+						"endIpAddress"   = "255.255.255.255"
+					})
 				}
+
+				$elasticPool = "none"
 
 				if (!$_.type) {
 					$_.type = "none"
+				}elseif ($_.type -eq "elasticPool") {
+					$elasticPool = 	Get-CmAzResourceName -Resource "AzureSQLElasticPool" -Architecture "PaaS" -Region $SettingsObject.Location -Name $_.elasticPoolName
 				}
 
 				$sqlObject = @{
-					"data" = @{
-						"family"                     = $dbFamily
-						"sharedServer"               = $sharedServer
-						"type"                       = ($_.type).Tolower()
-						"serverName"                 = $serverName;
-						"databases"                  = $databases;
-						"sku"                        = $_.sku;
-						"version"                    = $_version;
-						"elasticPoolProperties"      = @{
+					"data"                       = @{
+						"family"                = $dbFamily
+						"sharedServer"          = $sharedServer
+						"type"                  = ($_.type).Tolower()
+						"serverName"            = $serverName;
+						"service"				= $_.service;
+						"databases"             = $databaseCollection;
+						"sku"                   = $_.sku;
+						"version"               = $_version;
+						"elasticPoolProperties" = @{
 							"collation"                     = "SQL_Latin1_General_CP1_CI_AS";
 							"requestedServiceObjectiveName" = "ElasticPool";
-							"elasticPoolName"               = "ep-$serverName";
+							"elasticPoolName"               = $elasticPool;
 						};
-						"administratorLogin"         = $_.administratorLogin;
-						"workspace"                  = $workspace;
-						"logRetentionDays"           = $logRetentionPeriodInDays;
-						"firewallRules"			     = $_.firewallRules
+						"administratorLogin"    = $_.administratorLogin;
+						"workspace"             = $workspace;
+						"logRetentionDays"      = $logRetentionPeriodInDays;
+						"firewallRules"         = $_.firewallRules
 					};
 
 					"administratorLoginPassword" = @{
-							"keyVaultid" = $keyVaultName.resourceId;
-							"secretName" = $_.keyvault.passwordSecretName
+						"keyVaultid" = $keyVault.resourceId;
+						"secretName" = $_.passwordSecretName
 					}
 				}
 
@@ -185,7 +214,15 @@
 						-Force
 				}
 			}
-		}
+
+			$resourcesToSet += ($allsqlObjectArray.data | where-object -Property family -eq 'Microsoft.Sql').databases.name
+			$resourcesToSet += ($allsqlObjectArray.data | where-object -Property type -eq 'elasticPool').elasticPoolProperties.elasticPoolName
+			$resourcesToSet += $allsqlObjectArray.data.serverName
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceIds $resourcesToSet
+
+			Write-Verbose "Finished."
+	    }
 	}
 	catch {
 		$PSCmdlet.ThrowTerminatingError($PSitem);

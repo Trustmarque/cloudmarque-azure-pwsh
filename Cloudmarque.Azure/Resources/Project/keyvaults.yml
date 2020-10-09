@@ -1,6 +1,18 @@
 resourceGroupName: keyvaults
 location: UK South
+service:
+  dependencies:
+    workspace:
+    actiongroup:
+  publish:
+    resourceGroup:
+    keyvault:
+    activityLogAlert:
 keyVaults:
 - name: test
   type: Core
   location: UK South
+  service:
+    publish:
+      keyvault:
+      activityLogAlert:

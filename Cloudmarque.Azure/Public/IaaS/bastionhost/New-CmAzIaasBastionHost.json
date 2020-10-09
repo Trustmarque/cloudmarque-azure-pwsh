@@ -60,6 +60,9 @@
                             "sku": {
                                 "name": "Standard"
                             },
+                            "tags": {
+                                "cm-service": "[parameters('BastionHostObject').bastionHosts[copyIndex('BastionHostCopy')].service.publish.bastionPublicIP]"
+                            },
                             "properties": {
                                 "publicIPAllocationMethod": "static",
                                 "dnsSettings": {
@@ -76,6 +79,9 @@
                             "dependsOn": [
                                 "[resourceId('Microsoft.Network/publicIpAddresses', parameters('BastionHostObject').bastionHosts[copyIndex('BastionHostCopy')].bastionPublicIPName)]"
                             ],
+                            "tags": {
+                                "cm-service": "[parameters('BastionHostObject').bastionHosts[copyIndex('BastionHostCopy')].service.publish.bastion]"
+                            },
                             "properties": {
                                 "ipConfigurations": [
                                     {
@@ -119,8 +125,5 @@
                 }
             }
         }
-    ],
-    "outputs": {
-
-    }
+    ]
 }

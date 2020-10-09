@@ -60,7 +60,8 @@
 		[parameter(Mandatory = $false, ParameterSetName = "Settings CSV File")]
 		[String]$NsgsCsvFile,
 		[parameter(Mandatory = $false, ParameterSetName = "Settings CSV File")]
-		[String]$ResourceGroupsCsvFile
+		[String]$ResourceGroupsCsvFile,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -144,6 +145,7 @@
 									"resourceGroupName" = $internalNsg.resourceGroupName;
 									"nsgName"           = $internalNsg.nsgName;
 									"location"          = $internalNsg.location;
+									"servicePublish"    = $internalNsg.servicePublish;
 									"ruleName"          = $externalNsg.ruleName;
 									"priority"          = $externalNsg.priority;
 									"direction"         = $externalNsg.direction;
@@ -212,11 +214,31 @@
 						$location = $vnetGroup.location
 					}
 
+					if ($vnetGroup.servicePublish.count -gt 1) {
+						$servicePublish = $vnetGroup.servicePublish[0]
+					}
+					else {
+						$servicePublish = $vnetGroup.servicePublish
+					}
+
+					if ($vnetGroup.resourceGroupServicePublish.count -gt 1) {
+						$resourceGroupServicePublish = $vnetGroup.resourceGroupServicePublish[0]
+					}
+					else {
+						$resourceGroupServicePublish = $vnetGroup.resourceGroupServicePublish
+					}
+
 					$vnetObject = @{
 						vnetName     = $vnetName;
 						addressSpace = $addressSpace;
 						subnets      = $subnetObjectList;
-						location     = $location
+						location     = $location;
+						service      = @{
+							publish = @{
+								vnet          = $servicePublish;
+								resourceGroup = $resourceGroupServicePublish
+							}
+						}
 					}
 
 					$vnetObject
@@ -259,10 +281,30 @@
 						$location = $routeTableGroup.location
 					}
 
+					if ($routeTableGroup.servicePublish.count -gt 1) {
+						$servicePublish = $routeTableGroup.servicePublish[0]
+					}
+					else {
+						$servicePublish = $routeTableGroup.servicePublish
+					}
+
+					if ($routeTableGroup.resourceGroupServicePublish.count -gt 1) {
+						$resourceGroupServicePublish = $routeTableGroup.resourceGroupServicePublish[0]
+					}
+					else {
+						$resourceGroupServicePublish = $routeTableGroup.resourceGroupServicePublish
+					}
+
 					$routeTableObject = @{
 						tableName = $tableName;
 						routes    = $routeObjectList;
-						location  = $location
+						location  = $location;
+						service   = @{
+							publish = @{
+								routeTable    = $servicePublish;
+								resourceGroup = $resourceGroupServicePublish
+							}
+						}
 					}
 
 					$routeTableObject
@@ -315,10 +357,30 @@
 						$location = $nsgGroup.location
 					}
 
+					if ($nsgGroup.servicePublish.count -gt 1) {
+						$servicePublish = $nsgGroup.servicePublish[0]
+					}
+					else {
+						$servicePublish = $nsgGroup.servicePublish
+					}
+
+					if ($nsgGroup.resourceGroupServicePublish.count -gt 1) {
+						$resourceGroupServicePublish = $nsgGroup.resourceGroupServicePublish[0]
+					}
+					else {
+						$resourceGroupServicePublish = $nsgGroup.resourceGroupServicePublish
+					}
+
 					$nsgObject = @{
 						nsgName  = $nsgName;
 						rules    = $nsgruleObjectList;
-						location = $location
+						location = $location;
+						service  = @{
+							publish = @{
+								networkSecurityGroup = $servicePublish;
+								resourceGroup        = $resourceGroupServicePublish
+							}
+						}
 					}
 
 					$nsgObject
@@ -390,7 +452,9 @@
 						$ifResourceGroupExists = Get-AzResourceGroup -Name $ResourceGroup.Name -ErrorAction SilentlyContinue
 
 						if (!$ifResourceGroupExists) {
+
 							$RGlocation = ($resourceGroupslocation | Where-Object { $_.resourceGroupName -like $ResourceGroup.Name }).location
+							$resourceGroupServicePublish = ($resourceGroupslocation | Where-Object { $_.resourceGroupName -like $ResourceGroup.Name }).resourceGroupServicePublish
 
 							if (!$RGlocation -and $vnetObjectArray[0].location ) {
 								$RGlocation = $vnetObjectArray[0].location
@@ -400,11 +464,43 @@
 								Write-Error "Resource Group doesnt exist and a location is also not provided to create one."
 							}
 
+							if (!$resourceGroupServicePublish) {
+								$resourceGroupServicePublish = $vnetObjectArray.service.publish.resourceGroup | Where-Object { $_ -notlike '' }
+							}
+							if (!$resourceGroupServicePublish) {
+								$resourceGroupServicePublish = $routeTableObjectArray.service.publish.resourceGroup | Where-Object { $_ -notlike '' }
+							}
+							if (!$resourceGroupServicePublish) {
+								$resourceGroupServicePublish = $nsgObjectArray.service.publish.resourceGroup | Where-Object { $_ -notlike '' }
+							}
+
+							if (!$resourceGroupServicePublish) {
+								Write-Error "Resource Group $($ResourceGroup.Name) doesn't exist and need to be created. Please provide Resource Group Service to Publish."
+							}
+
+							if ($resourceGroupServicePublish.count -gt 1) {
+								[String]$resourceGroupServicePublishString = $resourceGroupServicePublish[0]
+							}
+							else {
+								[String]$resourceGroupServicePublishString = $resourceGroupServicePublish
+							}
+
 							$createRG = $true
+
+							$service = @{
+								publish = @{
+									resourceGroup = $resourceGroupServicePublishString
+								}
+							}
 						}
 						else {
 							$RGlocation = $ifResourceGroupExists.location
 							$createRG = $false
+							$service = @{
+								publish = @{
+									resourceGroup = "none"
+								}
+							}
 						}
 
 						# Adding Objects to resourceGroup Object
@@ -413,6 +509,7 @@
 							resourceGroup         = @{
 								name     = $ResourceGroup.Name;
 								location = $RGlocation;
+								service  = $service;
 								createRG = $createRG;
 							};
 							vnets                 = $vnetObjectArray;
@@ -512,6 +609,8 @@
 
 					$ResourceGroup = $_.ResourceGroupName
 
+					$GlobalServiceContainer = $_
+
 					# Set Vnet object
 					if ($_.vnets) {
 
@@ -531,6 +630,10 @@
 								$_.location = ""
 							}
 
+							$vnetObjectYml | ForEach-Object {
+								Set-GlobalServiceValues -GlobalServiceContainer $GlobalServiceContainer  -ServiceKey "vnet" -ResourceServiceContainer $_
+							}
+
 							$vnetObjectArray += $vnetObjectYml
 							Write-Verbose "Vnets from $_ added to '$ResourceGroup'"
 						}
@@ -547,6 +650,10 @@
 								$_.location = ""
 							}
 
+							$routeTableObjectYml | ForEach-Object {
+								Set-GlobalServiceValues -GlobalServiceContainer $GlobalServiceContainer -ServiceKey "routeTable" -ResourceServiceContainer $_
+							}
+
 							$routeTableObjectArray += $routeTableObjectYml
 							Write-Verbose "Route tables from $_ added to '$ResourceGroup'"
 						}
@@ -556,10 +663,15 @@
 					if ($_.networkSecurityGroups) {
 
 						$_.networkSecurityGroups | ForEach-Object {
+
 							$nsgObjectYml = createNetworkObjectFromYml -ymlObject $_ -ObjectType "networkSecurityGroups" -hasGroups $true
 
 							$nsgObjectYml | Where-Object { $_.location -like '' } | ForEach-Object {
 								$_.location = ""
+							}
+
+							$nsgObjectYml | ForEach-Object {
+								Set-GlobalServiceValues -GlobalServiceContainer $GlobalServiceContainer  -ServiceKey "networkSecurityGroup" -ResourceServiceContainer $_
 							}
 
 							$nsgObjectArray += $nsgObjectYml
@@ -569,15 +681,15 @@
 
 					# Default values if required for ARM template sanity checks
 					if (!$vnetObjectArray) {
-						$vnetObjectArray = @(@{vnetName = "none"; location = ""; addressSpace = @("10.10.0.0/24"); subnets = @(@{subnetName = "none"; cidr = "0.0.0.0/0" }) })
+						$vnetObjectArray = @(@{vnetName = "none"; location = ""; addressSpace = @("10.10.0.0/24"); subnets = @(@{subnetName = "none"; cidr = "0.0.0.0/0" }); service = @{publish = @{vnet = "" } } })
 					}
 
 					if (!$routeTableObjectArray) {
-						$routeTableObjectArray = @(@{tableName = "none"; location = ""; routes = @(@{routeName = "none"; cidr = "0.0.0.0/0"; nextHopType = "VirtualAppliance"; nextHopIpAddress = "10.10.10.10" }) })
+						$routeTableObjectArray = @(@{tableName = "none"; location = ""; routes = @(@{routeName = "none"; cidr = "0.0.0.0/0"; nextHopType = "VirtualAppliance"; nextHopIpAddress = "10.10.10.10" }); service = @{publish = @{routeTable = "" } } })
 					}
 
 					if (!$nsgObjectArray) {
-						$nsgObjectArray = @(@{nsgName = "none"; location = ""; rules = @(@{ruleName = "none"; description = "none"; priority = "none"; direction = "none"; sourceIp = "10.10.10.10"; sourcePort = 3389; destinationIp = "10.10.10.11"; destinationPort = 3389; protocol = "Tcp"; Access = "allow" }) })
+						$nsgObjectArray = @(@{nsgName = "none"; location = ""; rules = @(@{ruleName = "none"; description = "none"; priority = "none"; direction = "none"; sourceIp = "10.10.10.10"; sourcePort = 3389; destinationIp = "10.10.10.11"; destinationPort = 3389; protocol = "Tcp"; Access = "allow" }); service = @{publish = @{networkSecurityGroup = "" } } })
 					}
 
 					# Build Resource Group Config
@@ -594,11 +706,26 @@
 							Write-Error "Resource Group doesnt exist and a location is also not provided to create one."
 						}
 
+						if (!$_.service.publish.resourceGroup) {
+							Write-Error "Resource Group doesn't exist and need to be created. Please provide Resource Group Service to Publish."
+						}
+
 						$createRG = $true
+
+						$service = @{
+							publish = @{
+								resourceGroup = $_.service.publish.resourceGroup
+							}
+						}
 					}
 					else {
 						$RGlocation = $ifResourceGroupExists.location
 						$createRG = $false
+						$service = @{
+							publish = @{
+								resourceGroup = ""
+							}
+						}
 					}
 
 					# Adding Objects to resourceGroup Object
@@ -608,6 +735,7 @@
 							name     = $ResourceGroup;
 							location = $RGlocation;
 							createRG = $createRG;
+							service  = $service
 						};
 						vnets                 = $vnetObjectArray;
 						routeTables           = $routeTableObjectArray;
@@ -627,6 +755,18 @@
 				-TemplateFile $PSScriptRoot\New-CmAzIaasNetworking.json `
 				-location $resourceGroupObjectArray[0].resourceGroup.location`
 				-networkingArrayObject $resourceGroupObjectArray
+
+			$resourceGroupsToSet = ($resourceGroupObjectArray.resourceGroup | where-object -Property createRG -eq $true).name
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $resourceGroupsToSet
+
+			[System.Collections.ArrayList]$resourcesToSet = @()
+
+			$resourcesToSet += $resourceGroupObjectArray.vnets.vnetName
+			$resourcesToSet += $resourceGroupObjectArray.networkSecurityGroups.nsgName
+			$resourcesToSet += $resourceGroupObjectArray.routeTables.tableName
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceIds $resourcesToSet
 
 			Write-Verbose "Finished."
 		}

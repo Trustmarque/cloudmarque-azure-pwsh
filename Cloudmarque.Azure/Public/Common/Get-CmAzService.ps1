@@ -35,19 +35,23 @@
 		 be returned but a "not found" message will be written in verbose mode.
 
 		.Example
-		 Find a keyvault
-		 $keyVault = Get-CmAzService -Service "core-keys" -Region "USEast"
+		 Find a single keyvault
+		 $keyVault = Get-CmAzService -Service "core-keys" -Region "USEast" -ThrowIfMultiple
 
 		.Example
-		 Find a storage account for NSG logs
-		 $storageAccount = Get-CmAzService -Service "core-monitoring-logs-nsg" -Region "USEast" -ResourceType "Microsoft.Storage"
+		 Find a single storage account for NSG logs
+		 $storageAccount = Get-CmAzService -Service "core-monitoring-logs-nsg" -Region "USEast" -ThrowIfMultiple
+
+		.Example
+		 Find a set of vms
+		 $vms = Get-CmAzService -Service "core.mySetOfVms" -Region "UKSouth"
 	#>
 
 	[CmdletBinding()]
 	[OutputType([Hashtable])]
 	param(
-		[Parameter(Mandatory = $true)]
 		[String]
+		[AllowEmptyString()]
 		$Service,
 
 		[String]
@@ -60,43 +64,54 @@
 		$IsResourceGroup,
 
 		[Switch]
-		$ThrowIfUnavailable
+		$ThrowIfUnavailable,
+
+		[Switch]
+		$ThrowIfMultiple
 	)
+
+	if(!$Service) {
+		Write-Error "Value for $ServiceKey not provided, unable to find existing resources via the service locator. `nPlease check that your dependencies are correctly populated."
+	}
 
 	Get-CmAzContext -RequireAzure -ThrowIfUnavailable | Out-Null
 
-	$resource = @{}
+	$existingResources = @{}
 	$tag = "$ServiceKey : $Service"
 
 	if ($IsResourceGroup) {
 		Write-Verbose "Searching for resource group with tag $($tag)"
-		$resource = Get-AzResourceGroup -Tag @{ $ServiceKey = $Service }
+		$existingResources = Get-AzResourceGroup -Tag @{ $ServiceKey = $Service }
 	}
 	else {
 		Write-Verbose "Searching for resource with tag $($tag)"
-		$resource = Get-AzResource -TagName $ServiceKey -TagValue $Service
+		$existingResources = Get-AzResource -TagName $ServiceKey -TagValue $Service
 	}
 
-	if ($resource -is [system.array] -and $Region) {
+	if ($existingResources -is [system.array] -and $Region) {
 
-		if ($Region) {
-			$Region = $Region.Replace(" ", "")
-			$resource = $resource | Where-Object { $_.Location -Eq $Region }
-		}
-
-		$resource = $resource | Select-Object -First 1
+		$Region = $Region.replace(" ", "")
+		$existingResources = $existingResources | Where-Object { $_.location -Eq $Region }
 	}
 
-	if ($resource) {
+	if($existingResources.length -gt 1) {
 
-		@{
-			name = $resource.name
-			resourceId = $resource.resourceId
-			resourceGroupName = $resource.resourceGroupName
-			resourceType = $resource.resourceType
-			location = $resource.location
-			tags = $resource.tags
+		if ($ThrowIfMultiple) {
+			Write-Error "More than one resource returned for $tag, please check your resource tagging."
 		}
+		else {
+
+			$resources = @()
+
+			foreach ($existingResource in $existingResources) {
+				$resources += ConvertTo-HashTable $existingResource
+			}
+
+			$resources
+		}
+	}
+	elseif ($existingResources.length -eq 1) {
+		ConvertTo-HashTable -objectToConvert $existingResources
 	}
 	elseif ($ThrowIfUnavailable) {
 		Write-Error "Service not found. No resource with tag `"$($tag)`" could be found." -Category InvalidArgument -CategoryTargetName "ServiceKey : Service"

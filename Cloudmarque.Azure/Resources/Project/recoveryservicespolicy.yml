@@ -1,3 +1,4 @@
+policies:
 - policyName: 7Days # 7 Daily
   timeZone: UTC
   instantRpRetentionRangeInDays: 2

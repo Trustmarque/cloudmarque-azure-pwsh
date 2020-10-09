@@ -1,8 +1,19 @@
-resourceGroupTag:
 location:
-workspaceTag:
+service:
+  dependencies:
+    resourceGroup:
+    workspace:
+    vnet:
+  publish:
+    bastion:
+    bastionPublicIP:
 
 bastionHosts:
-  - vnetTag:
-    bastionHostName:
-    bastionHostSubnetPrefix: # Optional if bastion host subnet 'AzureBastionHost' doesnt exist already.
+- bastionHostName:
+  bastionHostSubnetPrefix:      # Optional if bastion host subnet 'AzureBastionHost' doesnt exist already.
+  service:
+    dependencies:
+      vnet:
+    publish:
+      bastion:
+      bastionPublicIP:

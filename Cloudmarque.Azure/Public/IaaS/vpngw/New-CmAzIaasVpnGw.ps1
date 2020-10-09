@@ -28,10 +28,11 @@
 
 	[CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
 	param(
-		[parameter(Mandatory = $true, ParameterSetName = "Settings File Path")]
+		[parameter(Mandatory = $true, ParameterSetName = "Settings File")]
 		[String]$SettingsFile,
 		[parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
-		[Object]$SettingsObject
+		[Object]$SettingsObject,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -47,14 +48,15 @@
                 Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
             }
 
-			$env:location = $SettingsObject.Location
-			$SettingsObject.ResourceGroupName = (Get-CmAzService -Service $SettingsObject.ResourceGroupTag -isResourceGroup -ThrowIfUnavailable).ResourceGroupName
-			$SettingsObject.SubscriptionID = (Get-AzSubscription).id
+			$SettingsObject.ResourceGroupName = (Get-CmAzService -Service $SettingsObject.service.dependencies.resourcegroup -isResourceGroup -ThrowIfUnavailable -ThrowIfMultiple).ResourceGroupName
 
-			$SettingsObject.VpnGw | ForEach-Object -Parallel {
+			foreach ($vpnGw in $SettingsObject.VpnGw) {
 
-				$_.VirtualNetworkName = (Get-CmAzService -Service $_.VnetTag -ThrowIfUnavailable).name
-				$vnetObject = Get-AzVirtualNetwork -Name $_.VirtualNetworkName
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "vnet" -ResourceServiceContainer $vpnGw -IsDependency
+
+				$vpnGw.VirtualNetworkName = (Get-CmAzService -Service $vpnGw.service.dependencies.vnet -ThrowIfUnavailable -ThrowIfMultiple).name
+
+				$vnetObject = Get-AzVirtualNetwork -Name $vpnGw.VirtualNetworkName
 
 				# Check if "GatewaySubnet Exists"
 
@@ -64,96 +66,115 @@
 				if (!$gatewaySubnet) {
 
 					Write-Verbose "GatewaySubnet not found."
-					if (!$_.GatewaySubnetPrefix) {
-						Write-Error "GatewaySubnet doesnt exist, please provide GatewaySubnetPrefix to create one." -TargetObject $_.GatewaySubnetPrefix
+
+					if (!$vpnGw.GatewaySubnetPrefix) {
+						Write-Error "GatewaySubnet doesnt exist, please provide GatewaySubnetPrefix to create one." -TargetObject $vpnGw.GatewaySubnetPrefix
 					}
 
-					Write-Verbose "$($_.GatewaySubnetPrefix) will be used to create GatewaySubnet in Vnet"
+					Write-Verbose "$($vpnGw.GatewaySubnetPrefix) will be used to create GatewaySubnet in Vnet"
 				}
 				else {
-
 					Write-Verbose "GatewaySubnet Found!"
-					$_.GatewaySubnetPrefix = ""
+					$vpnGw.GatewaySubnetPrefix = ""
 				}
 
-				$_.GatewayPublicIpName = Get-CmAzResourceName `
+				$vpnGw.GatewayPublicIpName = Get-CmAzResourceName `
 					-Resource "PublicIPAddress" `
 					-Architecture "IaaS" `
-					-Region $env:location `
-					-Name $_.GatewayName
+					-Region $SettingsObject.location `
+					-Name $vpnGw.GatewayName
 
-				$_.GatewayName = Get-CmAzResourceName `
+				$vpnGw.GatewayName = Get-CmAzResourceName `
 					-Resource "VirtualNetworkGateway" `
 					-Architecture "IaaS" `
-					-Region $env:location `
-					-Name $_.GatewayName
+					-Region $SettingsObject.location `
+					-Name $vpnGw.GatewayName
 
-				if (!$_.P2s.VpnAddressPool -or !$_.P2s.KeyVaultTag -or !$_.P2s.RootCertificateName) {
+
+				if ($vpnGw.P2s -or $vpnGw.S2s){
+					Write-Verbose "P2s or S2s configuration found. Checking dependencies.."
+					Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "keyvault" -ResourceServiceContainer $vpnGw -IsDependency
+				}
+
+				if (!$vpnGw.P2s.VpnAddressPool -or !$vpnGw.service.dependencies.keyvault -or !$vpnGw.P2s.RootCertificateName) {
 
 					Write-Verbose "P2s configuration not found."
-					$_.P2s.VpnAddressPool = ""
-					$_.P2s.ClientRootCertData = ""
-					$_.P2s.RootCertificateName = ""
+					$vpnGw.P2s.VpnAddressPool = ""
+					$vpnGw.P2s.ClientRootCertData = ""
+					$vpnGw.P2s.RootCertificateName = ""
 				}
 				else {
-
-					$keyVaultService = Get-CmAzService -Service $_.P2s.KeyVaultTag -ThrowIfUnavailable
+					$keyVaultService = Get-CmAzService -Service $vpnGw.service.dependencies.keyvault -ThrowIfUnavailable -ThrowIfMultiple
 
 					# This approach is because Vpn Gw expects Raw certificate data
-					$keyVaultCertificateObject = Get-AzKeyVaultCertificate -VaultName $keyVaultService.name -Name $_.P2s.RootCertificateName
-					$_.P2s.ClientRootCertData = [Convert]::ToBase64String($keyVaultCertificateObject.Certificate.GetRawCertData())
+					$keyVaultCertificateObject = Get-AzKeyVaultCertificate -VaultName $keyVaultService.name -Name $vpnGw.P2s.RootCertificateName
+					$vpnGw.P2s.ClientRootCertData = [Convert]::ToBase64String($keyVaultCertificateObject.Certificate.GetRawCertData())
 
-					if (!$_.P2s.ClientRootCertData) {
+					if (!$vpnGw.P2s.ClientRootCertData) {
 
 						Write-Verbose "Certificate Not Found! P2s will not be configured."
-						$_.P2s.VpnAddressPool = ""
-						$_.P2s.RootCertificateName = ""
-						$_.P2s.ClientRootCertData = ""
+						$vpnGw.P2s.VpnAddressPool = ""
+						$vpnGw.P2s.RootCertificateName = ""
+						$vpnGw.P2s.ClientRootCertData = ""
 					}
 					else {
-						Write-Verbose "Certificate $($_.P2s.RootCertificateName) found, p2s will be configured."
+						Write-Verbose "Certificate $($vpnGw.P2s.RootCertificateName) found, p2s will be configured."
 					}
 				}
-				if (!$_.S2s.ClientSitePublicIP -or !$_.S2s.CidrBlocks -or !$_.S2s.KeyVaultTag ) {
+
+				if (!$vpnGw.S2s.ClientSitePublicIP -or !$vpnGw.S2s.CidrBlocks -or !$vpnGw.service.dependencies.keyvault ) {
 
 					Write-Verbose "S2s configuration not found."
-					$_.S2s.CidrBlocks = @()
-					$_.S2s.ClientSitePublicIP = ""
-					$_.S2s.SharedKey = ""
+					$vpnGw.S2s.CidrBlocks = @()
+					$vpnGw.S2s.ClientSitePublicIP = ""
+					$vpnGw.S2s.SharedKey = ""
 				}
 				else {
 					# This apporach is because Key vault reference cannot be used directly in Arm template because of conflict with copy
 					# SharedKeyObject is created to resolve with CLIXML type of object created when you run Az commands.
-					$_.S2s.SharedKey = [System.Collections.ArrayList]@()
-					$_.S2s.SharedKeyObject = (Get-AzKeyVaultSecret -Name $_.S2s.KeyVaultSecret -VaultName (Get-CmAzService -Service $_.S2s.KeyVaultTag -ThrowIfUnavailable).name).SecretValueText
-					$_.S2s.SharedKey.add($_.S2s.SharedKeyObject.ToString()) > $null
+					$keyVaultService = Get-CmAzService -Service $vpnGw.service.dependencies.keyvault -ThrowIfUnavailable -ThrowIfMultiple
+					$vpnGw.S2s.SharedKey = [System.Collections.ArrayList]@()
+					$vpnGw.S2s.SharedKeyObject = (Get-AzKeyVaultSecret -Name $vpnGw.S2s.KeyVaultSecret -VaultName ($keyVaultService.name)).SecretValueText
+					$vpnGw.S2s.SharedKey.add($vpnGw.S2s.SharedKeyObject.ToString()) > $null
 
-					if (!$_.S2s.SharedKey) {
+					if (!$vpnGw.S2s.SharedKey) {
 
 						Write-Verbose "Secret could not be retrieved! S2s configuration will be skipped."
-						$_.S2s.CidrBlocks = @()
-						$_.S2s.ClientSitePublicIP = ""
-						$_.S2s.SharedKey = ""
+						$vpnGw.S2s.CidrBlocks = @()
+						$vpnGw.S2s.ClientSitePublicIP = ""
+						$vpnGw.S2s.SharedKey = ""
 					}
 					else {
-						Write-Verbose "Secret '$($_.S2s.KeyVaultSecret)' was found, s2s will be configured."
-						$_.S2s.localGatewayName = Get-CmAzResourceName `
+						Write-Verbose "Secret '$($vpnGw.S2s.KeyVaultSecret)' was found, s2s will be configured."
+						$vpnGw.S2s.localGatewayName = Get-CmAzResourceName `
 							-Resource "LocalNetworkGateway" `
 							-Architecture "IaaS" `
-							-Region $env:location `
-							-Name $_.GatewayName
+							-Region $SettingsObject.location `
+							-Name $vpnGw.GatewayName
 					}
 				}
+
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "publicIp" -ResourceServiceContainer $vpnGw
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "virtualNetworkGateway" -ResourceServiceContainer $vpnGw
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "localNetworkGateway" -ResourceServiceContainer $vpnGw
 			}
 
 			New-AzResourceGroupDeployment `
+				-Name 'CmAz_VpnGW_Parent' `
 				-ResourceGroupName $SettingsObject.ResourceGroupName `
 				-TemplateFile "$PSScriptRoot\New-CmAzIaasVpnGw.json" `
 				-VpnGwObject $SettingsObject `
-				-Location $env:location `
-				-Verbose
+				-Location $SettingsObject.location `
+				-Force
 
-			Write-Verbose "Finished!"
+			[System.Collections.Array]$resourceIds = @()
+			$resourceIds += $SettingsObject.vpnGw.gatewayPublicIpName
+			$resourceIds += $SettingsObject.vpnGw.gatewayName
+			$resourceIds += $SettingsObject.vpnGw.localGatewayName
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceIds $resourceIds
+
+			Write-Verbose "Finished."
 		}
 	}
 	catch {

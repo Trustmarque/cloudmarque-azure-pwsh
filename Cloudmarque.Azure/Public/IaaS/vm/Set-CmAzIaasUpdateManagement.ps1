@@ -106,8 +106,8 @@ function Set-CmAzIaasUpdateManagement {
 			$schedules.Add($schedule)
 		}
 
-		$automationAccount = Get-CmAzService -Service "config.automation1" -Region $SettingsObject.Location -ThrowIfUnavailable
-		$workspace = Get-CmAzService -Service "Core.Logging.LogAnalytics" -Region $SettingsObject.Location -ThrowIfUnavailable
+		$automationAccount = Get-CmAzService -Service $SettingsObject.service.dependencies.automation -ThrowIfUnavailable -ThrowIfMultiple
+		$workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -ThrowIfUnavailable -ThrowIfMultiple
 
 		Write-Verbose "Deploying Core Logging Automation..."
 		New-AzResourceGroupDeployment `

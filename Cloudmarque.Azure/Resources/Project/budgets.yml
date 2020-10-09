@@ -1,12 +1,18 @@
 
 location: UK South
+service:
+  dependencies:
+    actiongroup:
+
 budgets:
-  - name: HRBudget                      # No spaces allowed in name
-    category: cost                      # Can be cost or usage
+  - name: HRBudget                      # No spaces allowed in name.
+    category: cost                      # Can be cost or usage.
     accountNumber: accountnum
-    timeGrain: Monthly                  # Can be either Monthly, Quarterly or Annually
+    timeGrain: Monthly                  # Can be either Monthly, Quarterly or Annually.
     amount: 250
-    startDate: "2020-07-01"             # Must be YYYY-MM-DD format, must be start of month
-    endDate: "2021-07-01"               # Must be YYYY-MM-DD format
-    thresholds: [10, 20, 1, 3]          # % of amount when warning is fired, must be greater than 0 and less than 1000
-                                        # Cannot have more than five thresholds per budget
+    startDate: "2020-07-01"             # Must be YYYY-MM-DD format, must be start of month.
+    endDate: "2021-07-01"               # Must be YYYY-MM-DD format.
+    thresholds: [10, 20, 1, 3]          # % of amount when warning is fired, must be greater than 0 and less than 1000, cannot have more than five thresholds per budget.
+    service:
+      dependencies:
+        actiongroup:

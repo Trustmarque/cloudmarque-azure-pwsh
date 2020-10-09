@@ -4,5 +4,6 @@
 *projectroot*
 test
 package
+.vscode
 publish
 context.json

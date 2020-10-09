@@ -1,9 +1,0 @@
-updateGroups:
-  critical: "Critical, Security, UpdateRollup"
-  criticalSecurity: "Critical, Security, UpdateRollup, Definition"
-  recommended: "Critical, Security, UpdateRollup, Definition, ServicePack"
-  all: "Critical, Security, UpdateRollup, Definition, ServicePack, FeaturePack, Tools, Updates"
-updateFrequencies:
-  daily: Day
-  weekly: Week
-  monthly: Month

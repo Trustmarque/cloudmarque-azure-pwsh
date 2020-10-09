@@ -46,7 +46,8 @@
 		[parameter(Mandatory = $true)]
 		[SecureString]$LocalAdminUsername,
 		[parameter(Mandatory = $true)]
-		[SecureString]$LocalAdminPassword
+		[SecureString]$LocalAdminPassword,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -64,38 +65,39 @@
 
 			[Hashtable]$keyVaultDetails = $null
 
-			if (!$SettingsObject.Location) {
+			if (!$SettingsObject.location) {
 				Write-Error "Please provide a valid location." -Category InvalidArgument -CategoryTargetName "Location"
 			}
 
-			if (!$SettingsObject.KeyVault.Tag) {
-				Write-Error "Please provide a valid key vault tag." -Category InvalidArgument -CategoryTargetName "KeyVault.Tag"
+			if (!$SettingsObject.service.dependencies.keyVault) {
+				Write-Error "Please provide a valid keyvault tag." -Category InvalidArgument -CategoryTargetName "KeyVault.Tag"
 			}
 
-			$keyVaultService = Get-CmAzService -Service $SettingsObject.KeyVault.Tag -Region $SettingsObject.Location -ThrowIfUnavailable
+			$keyVaultService = Get-CmAzService -Service $SettingsObject.service.dependencies.keyvault -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple
 
-			$keyVault = Get-AzKeyVault -Name $keyVaultService.Name
+			$keyVault = Get-AzKeyVault -Name $keyVaultService.name
 
 			if (!$keyVault) {
 				Write-Error "Cannot find key vault resource, ensure the provided tag is set on a keyvault." -Category InvalidArgument -CategoryTargetName "KeyVault.Tag"
 			}
 
-			$keyEncryptionKey = Get-AzKeyVaultKey -VaultName $keyVault.VaultName -Name $SettingsObject.KeyVault.DiskEncryptionKey
+			$keyEncryptionKey = Get-AzKeyVaultKey -VaultName $keyVault.vaultName -Name $SettingsObject.diskEncryptionKey
 
 			if (!$keyEncryptionKey) {
 				Write-Error "Cannot find key encryption key in keyvault." -Category InvalidArgument -CategoryTargetName "KeyVault.DiskEncryptionKey"
 			}
 
 			$keyVaultDetails = @{
-				KeyEncryptionKeyUrl = $keyEncryptionKey.Id
-				ResourceId          = $keyVault.ResourceId;
-				VaultUri            = $keyVault.VaultUri
+				KeyEncryptionKeyUrl = $keyEncryptionKey.id
+				ResourceId          = $keyVault.resourceId;
+				VaultUri            = $keyVault.vaultUri
 			}
 
-			$automationAccount = Get-CmAzService -Service $SettingsObject.AutomationAccountTag -Region $SettingsObject.Location -ThrowIfUnavailable
+			$automationAccount = Get-CmAzService -Service $SettingsObject.service.dependencies.automation -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple
 
-			$automationAccountRegistration = Get-AzAutomationRegistrationInfo -ResourceGroupName $automationAccount.ResourceGroupName  `
-				-AutomationAccountName $automationAccount.Name  `
+			$automationAccountRegistration = Get-AzAutomationRegistrationInfo `
+				-ResourceGroupName $automationAccount.resourceGroupName `
+				-AutomationAccountName $automationAccount.name  `
 				-ErrorAction SilentlyContinue
 
 			if (!$automationAccountRegistration) {
@@ -106,55 +108,47 @@
 			$automationAccount.primaryKey = $automationAccountRegistration.primaryKey
 			$automationAccount.nodeConfigurationName = $SettingsObject.desiredConfigName
 
-			$workspace = Get-CmAzService -Service "core.logging.loganalytics" -Region $SettingsObject.location -ThrowIfUnavailable
+			$workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple
 
-			$allResourceGroupNames = @()
+			$allResourceGroups = @()
 			$allVirtualMachines = @()
-			$virtualNetworks = @{ }
 
 			$daysOfWeek = [DayOfWeek].GetEnumNames()
 
-			foreach ($resourceGroup in $SettingsObject.Groups) {
+			foreach ($resourceGroup in $SettingsObject.groups) {
 
-				if (!$resourceGroup.Name) {
+				if (!$resourceGroup.name) {
 					Write-Error "Please provide a valid resource group name." -Category InvalidArgument -CategoryTargetName "Groups.VirtualMachines.VirtualNetworkTag"
 				}
 
-				$resourceGroup.Name = Get-CmAzResourceName -Resource "ResourceGroup" -Architecture "IaaS" -Region $SettingsObject.Location -Name $resourceGroup.Name
+				$resourceGroup.name = Get-CmAzResourceName -Resource "ResourceGroup" -Architecture "IaaS" -Region $SettingsObject.location -Name $resourceGroup.name
 
-				foreach ($virtualMachine in $resourceGroup.VirtualMachines) {
+				foreach ($virtualMachine in $resourceGroup.virtualMachines) {
 
-					$virtualMachine.ResourceGroupName = $resourceGroup.Name
+					$virtualMachine.resourceGroupName = $resourceGroup.name
 
-					if (!$virtualMachine.Networking.VirtualNetworkTag) {
-						Write-Error "Please provide a valid virtual network tag for vm $($virtualMachine.Name)." -Category InvalidArgument -CategoryTargetName "Groups.VirtualMachines.VirtualNetworkTag"
-					}
+					Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "vnet" -ResourceServiceContainer $virtualMachine.networking -IsDependency
 
-					if (!$virtualNetworks[$virtualMachine.Networking.VirtualNetworkTag]) {
+					$virtualNetwork = Get-CmAzService -Service $virtualMachine.networking.service.dependencies.vnet -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple 
 
-						$virtualNetwork = Get-CmAzService -Service $virtualMachine.Networking.VirtualNetworkTag -Region $SettingsObject.Location -ThrowIfUnavailable
-
-						$virtualNetworks[$virtualMachine.Networking.VirtualNetworkTag] = $virtualNetwork.ResourceId
-					}
-
-					$virtualMachine.Networking.VirtualNetworkId = $virtualNetworks[$virtualMachine.Networking.VirtualNetworkTag]
+					$virtualMachine.networking.virtualNetworkId = $virtualNetwork.resourceId
 
 					Write-Verbose "Generating standardised resource names..."
-					$virtualMachine.ComputerName = Get-CmAzResourceName -Resource "ComputerName" -Architecture "Core" -Region $SettingsObject.Location -Name $virtualMachine.Name -MaxLength 15
-					$virtualMachine.NicName = Get-CmAzResourceName -Resource "NetworkInterfaceCard" -Architecture "IaaS" -Region $SettingsObject.Location -Name $virtualMachine.Name
-					$virtualMachine.OSDisk.Name = Get-CmAzResourceName -Resource "OSDisk" -Architecture "IaaS" -Region $SettingsObject.Location -Name $virtualMachine.Name
-					$virtualMachine.FullName = Get-CmAzResourceName -Resource "VirtualMachine" -Architecture "IaaS" -Region $SettingsObject.Location -Name $virtualMachine.Name
+					$virtualMachine.computerName = Get-CmAzResourceName -Resource "ComputerName" -Architecture "Core" -Region $SettingsObject.location -Name $virtualMachine.name -MaxLength 15
+					$virtualMachine.nicName = Get-CmAzResourceName -Resource "NetworkInterfaceCard" -Architecture "IaaS" -Region $SettingsObject.location -Name $virtualMachine.name
+					$virtualMachine.osDisk.Name = Get-CmAzResourceName -Resource "OSDisk" -Architecture "IaaS" -Region $SettingsObject.location -Name $virtualMachine.name
+					$virtualMachine.fullName = Get-CmAzResourceName -Resource "VirtualMachine" -Architecture "IaaS" -Region $SettingsObject.location -Name $virtualMachine.name
 
 					Write-Verbose "Building data disks..."
 					$virtualMachine.DataDisks = @()
 
-					for ($i = 0; $i -lt $virtualMachine.DataDiskSizes.Count; $i++) {
+					for ($i = 0; $i -lt $virtualMachine.dataDiskSizes.count; $i++) {
 
-						$virtualMachine.DataDisks += @{
-							"Name"         = Get-CmAzResourceName -Resource "DataDisk" -Architecture "IaaS" -Region $SettingsObject.Location -Name "$($virtualMachine.Name)$($i + 1)";
+						$virtualMachine.dataDisks += @{
+							"Name"         = Get-CmAzResourceName -Resource "DataDisk" -Architecture "IaaS" -Region $SettingsObject.location -Name "$($virtualMachine.name)$($i + 1)";
 							"Lun"          = $i + 1;
 							"CreateOption" = "Empty";
-							"DiskSizeGB"   = $virtualMachine.DataDiskSizes[$i]
+							"DiskSizeGB"   = $virtualMachine.dataDiskSizes[$i]
 						}
 					}
 
@@ -165,19 +159,24 @@
 
 						$inValidScheduleSettings =
 							!$scheduleSettings -or
-							!$scheduleSettings.UpdateGroups[$virtualMachine.updateGroup] -or
-							(!$scheduleSettings.UpdateFrequencies[$virtualMachine.updateFrequency] -and $daysOfWeek -notcontains $virtualMachine.updateFrequency)
+							!$scheduleSettings.updateGroups[$virtualMachine.updateGroup] -or
+							(!$scheduleSettings.updateFrequencies[$virtualMachine.updateFrequency] -and $daysOfWeek -notcontains $virtualMachine.updateFrequency)
 
 						if ($inValidScheduleSettings) {
 							Write-Error "No valid schedule settings." -Category ObjectNotFound -CategoryTargetName "scheduleTypeSettingsObject"
 						}
 
-						$virtualMachine.updateTag = @{ "cm-update" = "$($virtualMachine.updateGroup)-$($virtualMachine.updateFrequency)" }
+						$virtualMachine.updateTag = "$($virtualMachine.updateGroup)-$($virtualMachine.updateFrequency)"
 					}
+
+					Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "vm" -ResourceServiceContainer $virtualMachine
+					Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "nic" -ResourceServiceContainer $virtualMachine
 				}
 
-				$allResourceGroupNames += $resourceGroup.Name
-				$allVirtualMachines += $resourceGroup.VirtualMachines
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "resourceGroup" -ResourceServiceContainer $resourceGroup
+
+				$allResourceGroups += $resourceGroup;
+				$allVirtualMachines += $resourceGroup.virtualMachines
 			}
 
 			Write-Verbose "Deploying virtual machines..."
@@ -188,24 +187,31 @@
 			else {
 				New-AzDeployment `
 					-TemplateFile "$PSScriptRoot\New-CmAzIaasVm.ResourceGroups.json" `
-					-LocationFromTemplate $SettingsObject.Location `
-					-Location $SettingsObject.Location `
-					-ResourceGroupNames $allResourceGroupNames
+					-LocationFromTemplate $SettingsObject.location `
+					-Location $SettingsObject.location `
+					-ResourceGroups $allResourceGroups
 
 				# Cross resource group deployments for VMs appear to still to require the use of New-AzResourceGroupDeployment, instead of subscription level deployment
 				# through New-AzDeployment, which doesn't seem right.
 				# Deploying the same template through New-AzDeployment triggers a BadRequest: InvalidRequestFormat error.
 
+				$credentials = @{
+					"LocalAdminUsername" = ConvertFrom-SecureString $LocalAdminUsername -AsPlainText;
+					"LocalAdminPassword" = ConvertFrom-SecureString $LocalAdminPassword -AsPlainText;
+				}
+
 				New-AzResourceGroupDeployment `
 					-TemplateFile "$PSScriptRoot\New-CmAzIaasVm.json" `
-					-ResourceGroupName $allResourceGroupNames[0] `
-					-LocalAdminUsername $LocalAdminUsername  `
-					-LocalAdminPassword $LocalAdminPassword `
+					-ResourceGroupName $allResourceGroups[0].name `
+					-Credentials $credentials `
 					-VirtualMachines $allVirtualMachines `
-					-WorkspaceId $workspace.ResourceId `
+					-WorkspaceId $workspace.resourceId `
 					-KeyVault $keyVaultDetails `
-					-AutomationAccount $automationAccount
+					-AutomationAccount $automationAccount `
+					-Force
 			}
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $allResourceGroups.name
 
 			Write-Verbose "Finished!"
 		}

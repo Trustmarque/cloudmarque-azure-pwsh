@@ -197,6 +197,11 @@ resources:
   minLength: 1
   maxLength: 64
   generator: database
+- name: AzureSQLElasticPool
+  shortname: elp
+  minLength: 1
+  maxLength: 64
+  generator: database
 - name: AzureCosmosDBdatabase
   shortname: cosmos
   minLength: 1

@@ -77,7 +77,7 @@
 
 			$packageName = $dataFile.rootModule.TrimEnd(".psm1")
 			$packageVersion = $dataFile.moduleVersion
-			$date = get-date -UFormat "+%Y-%m-%dT%H:%M:%S.000Z"
+			$date = Get-Date -UFormat "+%Y-%m-%dT%H:%M:%S.000Z"
 
 			$isValid = Test-Path -LiteralPath $ProjectRoot -IsValid
 

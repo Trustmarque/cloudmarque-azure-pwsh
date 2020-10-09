@@ -2,17 +2,17 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "ActionGroup": {
+            "type": "Object"
+        },
         "KeyVaults": {
             "type": "Array"
         },
         "ObjectID": {
-            "type": "string"
+            "type": "String"
         },
         "Workspace": {
-            "type": "object"
-        },
-        "ActionGroup": {
-            "type": "object"
+            "type": "Object"
         }
     },
     "variables": {
@@ -43,8 +43,7 @@
                             "apiVersion": "2016-10-01",
                             "location": "[parameters('KeyVaults')[copyIndex('KeyVaultCopy')].location]",
                             "tags": {
-                                "displayName": "[parameters('KeyVaults')[copyIndex('KeyVaultCopy')].name]",
-                                "cm.service": "core.security"
+                                "cm-service": "[parameters('KeyVaults')[copyIndex('KeyVaultCopy')].service.publish.keyvault]"
                             },
                             "properties": {
                                 "enabledForDeployment": true,
@@ -150,6 +149,9 @@
                             "dependsOn": [
                                 "[resourceId('Microsoft.KeyVault/Vaults', parameters('Keyvaults')[copyIndex('KeyVaultCopy')].name)]"
                             ],
+                            "tags": {
+                                "cm-service": "[parameters('Keyvaults')[copyIndex('KeyVaultCopy')].service.publish.activityLogAlert]"
+                            },
                             "properties": {
                                 "scopes": [
                                     "[subscription().Id]"

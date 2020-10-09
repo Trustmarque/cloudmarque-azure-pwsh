@@ -60,6 +60,9 @@
         },
         "storageName": {
           "type": "string"
+        },
+        "ServiceContainer": {
+            "type": "Object"
         }
     },
     "variables" : {
@@ -73,6 +76,9 @@
             "sku": {
               "name": "Standard_Microsoft"
             },
+            "tags": {
+                "cm-service": "[parameters('ServiceContainer').cdn]"
+            },
             "properties": {},
             "type": "microsoft.cdn/profiles"
         },
@@ -83,6 +89,9 @@
             ],
             "name": "[concat(parameters('profileName'),'/',parameters('endpointName'))]",
             "location": "[parameters('location')]",
+            "tags": {
+                "cm-service": "[parameters('ServiceContainer').endpoint]"
+            },
             "properties": {
                 "isHttpAllowed": true,
                 "isHttpsAllowed": true,

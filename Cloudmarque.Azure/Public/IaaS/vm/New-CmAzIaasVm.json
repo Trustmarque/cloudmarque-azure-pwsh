@@ -8,11 +8,8 @@
         "KeyVault": {
             "type": "Object"
         },
-        "LocalAdminUsername": {
-            "type": "SecureString"
-        },
-        "LocalAdminPassword": {
-            "type": "SecureString"
+        "Credentials": {
+            "type": "SecureObject"
         },
         "WorkspaceId": {
             "type": "String"
@@ -39,11 +36,8 @@
                     "KeyVault": {
                         "value": "[parameters('KeyVault')]"
                     },
-                    "LocalAdminUsername": {
-                        "value": "[parameters('LocalAdminUsername')]"
-                    },
-                    "LocalAdminPassword": {
-                        "value": "[parameters('LocalAdminPassword')]"
+                    "Credentials": {
+                        "value": "[parameters('Credentials')]"
                     },
                     "WorkspaceId": {
                         "value": "[parameters('WorkspaceId')]"
@@ -62,11 +56,8 @@
                         "KeyVault": {
                             "type": "Object"
                         },
-                        "LocalAdminUsername": {
-                            "type": "SecureString"
-                        },
-                        "LocalAdminPassword": {
-                            "type": "SecureString"
+                        "Credentials": {
+                            "type": "SecureObject"
                         },
                         "WorkspaceId": {
                             "type": "String"
@@ -98,8 +89,8 @@
                             "customScriptExtentionTypeHandlerVersion": "1.7",
                             "osProfile": {
                                 "computerName": "[parameters('VM').computerName]",
-                                "adminUsername": "[parameters('LocalAdminUsername')]",
-                                "adminPassword": "[parameters('LocalAdminPassword')]",
+                                "adminUsername": "[parameters('Credentials')['LocalAdminUsername']]",
+                                "adminPassword": "[parameters('Credentials')['LocalAdminPassword']]",
                                 "windowsConfiguration": {
                                     "provisionVMAgent": true,
                                     "enableAutomaticUpdates": true
@@ -158,8 +149,8 @@
                             "customScriptExtentionTypeHandlerVersion": "2.1",
                             "osProfile": {
                                 "computerName": "[parameters('VM').computerName]",
-                                "adminUsername": "[parameters('LocalAdminUsername')]",
-                                "adminPassword": "[parameters('LocalAdminPassword')]",
+                                "adminUsername": "[parameters('Credentials')['LocalAdminUsername']]",
+                                "adminPassword": "[parameters('Credentials')['LocalAdminPassword']]",
                                 "linuxConfiguration": {
                                     "provisionVMAgent": true
                                 },
@@ -186,6 +177,9 @@
                             "apiVersion": "2019-12-01",
                             "name": "[parameters('VM').nicName]",
                             "location": "[resourceGroup().location]",
+                            "tags": {
+                                "cm-service": "[parameters('VM').service.publish.nic]"
+                            },
                             "properties": {
                                 "ipConfigurations": [
                                     {
@@ -206,7 +200,10 @@
                             "apiVersion": "2019-12-01",
                             "name": "[parameters('VM').fullName]",
                             "location": "[resourceGroup().location]",
-                            "tags": "[parameters('VM').updateTag]",
+                            "tags": {
+                                "cm-update": "[parameters('VM').updateTag]",
+                                "cm-service": "[parameters('VM').service.publish.vm]"
+                            },
                             "dependsOn": [
                                 "[parameters('VM').nicName]"
                             ],

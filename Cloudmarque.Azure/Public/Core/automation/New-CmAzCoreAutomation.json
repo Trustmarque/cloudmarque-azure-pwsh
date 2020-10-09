@@ -7,6 +7,9 @@
         },
         "Location": {
             "type": "String"
+        },
+        "AutomationService": {
+            "type": "String"
         }
     },
     "resources": [
@@ -16,7 +19,9 @@
             "name": "[parameters('AccountName')]",
             "location": "[parameters('Location')]",
             "dependsOn": [],
-            "tags": {},
+            "tags": {
+                "cm-service": "[parameters('AutomationService')]"
+            },
             "properties": {
                 "sku": {
                     "name": "Basic"

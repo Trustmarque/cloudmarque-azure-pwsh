@@ -36,7 +36,7 @@
         }
 
         # Reimport and show details
-        Import-Module "$PSScriptRoot/$module"
+        Import-Module "$PSScriptRoot\$module\$module.psm1"
         Get-Module $module
     }
 }

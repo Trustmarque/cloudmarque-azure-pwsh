@@ -13,6 +13,9 @@
             "metadata": {
                 "description": "The name of the storage account"
             }
+        },
+        "StorageService": {
+            "type": "String"
         }
     },
     "resources": [
@@ -21,6 +24,9 @@
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2019-06-01",
             "location": "[parameters('location')]",
+            "tags": {
+                "cm-service": "[parameters('StorageService')]"
+            },
             "properties": {
                 "accessTier": "Hot",
                 "supportsHttpsTrafficOnly": true,
@@ -30,11 +36,7 @@
             "sku": {
                 "name": "Standard_LRS"
             },
-            "kind": "StorageV2",
-            "tags": {
-                "CmAz-role": "static-website",
-                "CmAz-app": "1"
-            }
+            "kind": "StorageV2"
         },
         {
             "type": "Microsoft.Storage/storageAccounts/blobServices",

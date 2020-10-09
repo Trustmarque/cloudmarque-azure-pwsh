@@ -1,11 +1,23 @@
 ﻿resourceGroupName: exampleRG                # Required to create resource group
 location: East US
+service:
+  publish:
+    resourceGroup:
+    appServicePlan:
+    webapp:
+    apiManagement:
+    frontDoor:
+    cdn:
+    endpoint:
 
 monitoring:
   applicationInstrumentationKey:
 
 appServicePlans:
   - name: serviceplan1
+    service:
+      publish:
+        appServicePlan:
     sku: S1
     region: East US
     webapps:
@@ -13,17 +25,54 @@ appServicePlans:
         backendpool: mainExampleBackend
         backendHostHeader: false            # Optional : default is true. Required for easy auth scenarios
         runTime: TOMCAT|9.0-jre8            # Only Linux supported
+        service:
+          publish:
+            webapp:
         slots:
-          - Production
-          - Staging
+          - name: Production
+            service:
+              publish:
+                slot:
+          - name: Staging
+            service:
+              publish:
+                slot:
+        contentDeliveryNetwork:
+          name:
+          sku:                                      # standard_microsoft
+          attachObjectName:                         # storage Name or web App Name
+          service:
+            publish:
+              cdn:
+              endpoint:
       - name: Exampleapp2
         backendpool: APIExampleBackend
         backendHostHeader: false            # Optional : default is true. Required for easy auth scenarios
         runTime: PHP|7.3
-        slots:                              # autoswap enabled
-          - Production
-          - Staging
+        service:
+          publish:
+            webapp:
+        slots:
+          - name: Production
+            service:
+              publish:
+                slot:
+          - name: Staging
+            service:
+              publish:
+                slot:
+        contentDeliveryNetwork:
+          name:
+          sku:                                      # standard_microsoft
+          attachObjectName:                         # storage Name or web App Name
+          service:
+            publish:
+              cdn:
+              endpoint:
   - name: serviceplan2
+    service:
+      publish:
+        appServicePlan:
     sku: S1
     region: West US
     webapps:
@@ -31,16 +80,50 @@ appServicePlans:
         runTime: PHP|7.3
         backendpool: mainExampleBackend
         backendHostHeader: false            # Optional : default is true. Required for easy auth scenarios
+        service:
+          publish:
+            webapp:
         slots:
-          - Production
-          - Staging
+          - name: Production
+            service:
+              publish:
+                slot:
+          - name: Staging
+            service:
+              publish:
+                slot:
+        contentDeliveryNetwork:
+          name:
+          sku:                                      # standard_microsoft
+          attachObjectName:                         # storage Name or web App Name
+          service:
+            publish:
+              cdn:
+              endpoint:
       - name: Exampleapp4
         runTime: TOMCAT|9.0-jre8
         backendpool: mainExampleBackend
         backendHostHeader: false            # Optional : default is true. Required for easy auth scenarios
+        service:
+          publish:
+            webapp:
         slots:
-          - Production
-          - Staging
+          - name: Production
+            service:
+              publish:
+                slot:
+          - name: Staging
+            service:
+              publish:
+                slot:
+        contentDeliveryNetwork:
+          name:
+          sku:                                      # standard_microsoft
+          attachObjectName:                         # storage Name or web App Name
+          service:
+            publish:
+              cdn:
+              endpoint:
 
 apiManagementServices:
   - name:
@@ -50,16 +133,22 @@ apiManagementServices:
     sku:
     backendpool: APIExampleBackend
     backendHostHeader: false                # Optional : default is true. Required for easy auth scenarios
+    service:
+      publish:
+        apiManagement:
 
 frontDoor:
   hostName: ExampleFrontdoor
   sessionAffinity:                          # Optional - leave empty or false for disabled
   webApplicationFirewallPolicy:             # Optional - FirewallPolicy
+  service:
+    publish:
+      frontdoor: 
   customDomains:
     - domainName:
-      customCertificateVaultName:           # optional - leave empty for frontdoor certificate
-      customCertificateSecretName:          # optional - leave empty for frontdoor certificate
-      webApplicationFirewallPolicy:         # optional - provide Azure waf policy
+      customCertificateVaultName:           # Optional - leave empty for frontdoor certificate
+      customCertificateSecretName:          # Optional - leave empty for frontdoor certificate
+      webApplicationFirewallPolicy:         # Optional - provide Azure waf policy
       sessionAffinity:                      # Optional - true / false - False is default
   backEndPools:
     - name: mainExampleBackend
@@ -77,8 +166,3 @@ frontDoor:
       pattern:
         - /api
       backEndPoolname: APIExampleBackend
-
-contentDeliveryNetwork:
-  name:
-  sku:                                      # standard_microsoft
-  attachObjectName:                         # storage Name or web App Name

@@ -68,7 +68,7 @@
                                                 ],
                                                 "tagSettings": {
                                                     "tags": {
-                                                        "cm.update": [
+                                                        "cm-update": [
                                                             "[parameters('UpdateSchedules')[copyIndex('ScheduleCopy')].tagValue]"
                                                         ]
                                                     },

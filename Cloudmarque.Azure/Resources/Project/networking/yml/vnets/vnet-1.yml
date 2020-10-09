@@ -2,6 +2,10 @@ vnetName: vnet-1
 
 location: UK South
 
+service:
+  publish:
+    vnet:
+
 addressSpace:                  # Array of vnet cidr blocks
   -
 

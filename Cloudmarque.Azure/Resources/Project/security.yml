@@ -1,5 +1,9 @@
 location: UK South
 enableUkNhs: false 
+service:
+  dependencies:
+    workspace:
+    
 securityContacts:
   primary:
     email:                  # First set of contact details can have an email and phone set.

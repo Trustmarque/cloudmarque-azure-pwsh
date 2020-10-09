@@ -7,12 +7,13 @@ foreach ($includeProps in $includes) {
 
     $include = New-Object psobject -Property $includeProps;
 
-    if ($include.Export) {
+    $items = Get-ChildItem -Path "$PSScriptRoot\$($include.Directory)\" -Filter "*.ps1" -Recurse -Force
 
-        $items = Get-ChildItem -Path "$PSScriptRoot\$($include.Directory)\" -Filter "*.ps1" -Recurse -Force
+    foreach($item in $items)  {
         
-        foreach($item in $items)  {
-            . $item.FullName
+        . $item.FullName
+
+        if ($include.Export) {
             Export-ModuleMember -Function $item.BaseName
         }
     }

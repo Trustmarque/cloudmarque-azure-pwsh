@@ -1,9 +1,22 @@
 name: testKeyvaultDeploy15
 location: UK South
 advisorLowCPUThresholdPercentage: 5     # Can be set to 0, 5, 10, 15 or 20
+service:
+  publish:
+    activityLogAlert:
+    appInsights:
+    solution:
+    storage:
+    workspace:
+    loggingResourceGroup: 
+    monitoringResourceGroup:
+    actionGroup:
 actionGroups:
 - name: test
-  shortname: test   
+  shortname: test
+  service:
+    publish:
+      actionGroup:
   armRoles:                    
   emails: 
   functions:

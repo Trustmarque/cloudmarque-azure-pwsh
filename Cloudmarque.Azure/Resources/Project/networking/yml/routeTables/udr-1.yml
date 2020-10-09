@@ -3,18 +3,19 @@
 
 - tableName:
   location: # Optional - defaults to resource group location
+  service:
+    publish:
+      routeTable:
   routes:
     - cidr:
       nextHopType:
       routeName:
       nextHopIpAddress:
+
 - tableName:
-  routes:
-    - cidr:
-      nextHopType:
-      routeName:
-      nextHopIpAddress:
-- tableName:
+  service:
+    publish:
+      routeTable:
   routeGroup:
     - DefaultRouteGroup
   routes:

@@ -13,10 +13,9 @@
             "name": "[parameters('RecoveryServicesVaults')[copyIndex('recoveryVaultCopy')].name]",
             "location": "[parameters('RecoveryServicesVaults')[copyIndex('recoveryVaultCopy')].location]",
             "tags": {
-                "cm.service": "core.recovery"
+                "cm-service": "[parameters('RecoveryServicesVaults')[copyIndex('recoveryVaultCopy')].service.publish.recoveryVault]"
             },
-            "properties": {
-            },
+            "properties": {},
             "sku": {
                 "tier": "[parameters('RecoveryServicesVaults')[copyIndex('recoveryVaultCopy')].backupLevel]",
                 "name": "RS0"

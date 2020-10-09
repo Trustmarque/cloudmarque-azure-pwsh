@@ -5,5 +5,6 @@ tags:
     cm-owner: s                         # Required - Owner name and email
     cm-charge: s                        # Required - Cost code
     cm-apps:  s                         # Required - App name
+    cm-delete: s                        # Optional - Optional - Delete on date
   custom:
-    cm-delete:                          # Optional - Delete on date
+    test: s                             # Optional - Set your own custom tag keys and values here

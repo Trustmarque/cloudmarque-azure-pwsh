@@ -33,24 +33,6 @@
 
 	$ErrorActionPreference = "Stop"
 
-	function MergeHashTables() {
-
-		param(
-			[parameter(Mandatory = $true)]
-			[hashtable]$hashtableToFilter,
-			[parameter(Mandatory = $true)]
-			[hashtable]$hashtableToAdd
-		)
-
-		$hashtableToFilter.GetEnumerator() | ForEach-Object {
-			if ($_.key -and $hashtableToAdd.keys -notcontains $_.key) {
-				$hashtableToAdd.Add($_.key, $_.value)
-			}
-		}
-
-		return $hashtableToAdd
-	}
-
 	try {
 
 		if ($PSCmdlet.ShouldProcess((Get-CmAzSubscriptionName), "Set tags for resources")) {
@@ -63,30 +45,36 @@
 			}
 
 			Write-Verbose "Checking that the expected mandatory tags exist and are not empty..."
-			$expectedMandatoryTagKeys = @("cm-owner", "cm-apps", "cm-charge")
+			$expectedMandatoryTagKeys = @("cm-owner", "cm-charge", "cm-apps")
 
 			$mandatoryTagsVariableName = "Tags.Mandatory"
 
 			$missingMandatoryKeys = $expectedMandatoryTagKeys | Where-Object { $SettingsObject.Tags.Mandatory.Keys -NotContains $_ }
 
 			if ($missingMandatoryKeys) {
-
-				$missingMandatoryKeysValue = [string]$missingMandatoryKeys
-
-				Write-Error "$missingMandatoryKeysValue is missing from the mandatory tags section." -Category InvalidArgument -CategoryTargetName $mandatoryTagsVariableName
+				Write-Error "$([string]$missingMandatoryKeys) is missing from the mandatory tags section." -Category InvalidArgument -CategoryTargetName $mandatoryTagsVariableName
 			}
 
-			foreach ($actualMandatoryTagKey in $SettingsObject.Tags.Mandatory.Keys) {
+			$cmazContext = Get-CmAzContext
 
-				$tagValue = $SettingsObject.Tags.Mandatory[$actualMandatoryTagKey]
+			$sourceTypeInfo = $cmazcontext.builddefinitionname.trim(")").split("(")
+
+			$SettingsObject.Tags.Mandatory["cm-source"] = "$($sourceTypeInfo[0]) $($cmazContext.date)"
+			$SettingsObject.Tags.Mandatory["cm-type"] = $sourceTypeInfo[1]
+
+			foreach ($key in $SettingsObject.Tags.Mandatory.Keys) {
+
+				$tagValue = $SettingsObject.Tags.Mandatory[$key]
 
 				if(!$tagValue) {
-					Write-Error "Mandatory Tag - $actualMandatoryTagKey is null. Please set the appropriate Value in settings." -Category InvalidArgument -CategoryTargetName $mandatoryTagsVariableName
+					Write-Error "Mandatory Tag - $key is null. Please set the appropriate Value in settings." -Category InvalidArgument -CategoryTargetName $mandatoryTagsVariableName
 				}
 				else {
-					Write-Verbose "Tag - $actualMandatoryTagKey will be set as $tagValue..."
+					Write-Verbose "Mandatory Tag - $key will be set as $tagValue..."
 				}
 			}
+
+			$allTags = $SettingsObject.Tags.Mandatory
 
 			Write-Verbose "Setting custom tags..."
 			if ($SettingsObject.Tags.Custom) {
@@ -96,9 +84,9 @@
 					$Value = $SettingsObject.Tags.Custom[$customTagKey]
 					Write-verbose "Tag - $customTagKey will be set as $Value..."
 				}
-			}
 
-			$allTags = $SettingsObject.Tags.Mandatory + $SettingsObject.Tags.Custom
+				$allTags += $SettingsObject.Tags.Custom
+			}
 
 			$resources = @()
 
@@ -107,69 +95,86 @@
 
 				foreach ($resourceId in $SettingsObject.ResourceIds) {
 
-					try {
-						Write-Verbose "Fetching $resourceId..."
-						$resources += Get-AzResource -ResourceID $resourceId
+					Write-Verbose "Fetching $resourceId..."
+					if($resourceId.startsWith("/subscriptions/") -Or $resourceId -Contains "/") {
+						$existingResources = Get-AzResource -ResourceID $resourceId -ErrorAction Continue
 					}
-					catch {
+					else {
+						$existingResources = Get-AzResource -Name $resourceId -ErrorAction Continue
+					}
+
+					if(!$existingResources) {
 						Write-Error "Issue locating resource: $resourceId." -Category ObjectNotFound -CategoryTargetName $resourceId
 					}
+
+					$resources += $existingResources
 				}
 			}
-			elseif ($SettingsObject.ResourceGroupName) {
+			elseif ($SettingsObject.ResourceGroupIds) {
 
-				$resourceGroup = $null
+				foreach ($resourceGroupId in $SettingsObject.ResourceGroupIds) {
 
-				try {
-					Write-Verbose "Fetching resource group $($SettingsObject.ResourceGroupName)..."
-					$resourceGroup = Get-AzResourceGroup -ResourceGroupName $SettingsObject.ResourceGroupName
-				}
-				catch {
-					Write-Error "Issue locating resource group: $($SettingsObject.ResourceGroupName)." -Category ObjectNotFound -CategoryTargetName $SettingsObject.ResourceGroupName
-				}
+					$resourceGroup = $null
 
-				$tagsToSet = @{}
-				$tagsToSet += $allTags
+					try {
+						Write-Verbose "Fetching resource group $($resourceGroupId)..."
+						$resourceGroup = Get-AzResourceGroup -ResourceGroupName $resourceGroupId
+					}
+					catch {
+						Write-Error "Issue locating resource group: $($resourceGroupId)." -Category ObjectNotFound -CategoryTargetName "ResourceGroupIds"
+					}
 
-				if($resourceGroup.tags) {
-					$tagsToSet = MergeHashTables -hashtableToFilter $resourceGroup.tags -hashtableToAdd $tagsToSet
-				}
+					$tagsToSet = @{}
+					$tagsToSet += $allTags
 
-				Write-Verbose "Setting tags for $($SettingsObject.ResourceGroupName)..."
-				Set-AzResourceGroup -Name $SettingsObject.ResourceGroupName -Tag $tagsToSet
+					if($resourceGroup.tags) {
+						$tagsToSet = Merge-HashTables -HashtableToFilter $resourceGroup.tags -HashtableToAdd $tagsToSet
+					}
 
-				try {
-					Write-Verbose "Fetching resources in $($SettingsObject.ResourceGroupName)..."
-					$resources = Get-AzResource -ResourceGroupName $SettingsObject.ResourceGroupName
-				}
-				catch {
-					Write-Error "Issue locating resources in resource group: $($SettingsObject.ResourceGroupName)." -Category ObjectNotFound -CategoryTargetName $ResourceGroupName
+					Write-Verbose "Setting tags for $($resourceGroupId)..."
+					Set-AzResourceGroup -Name $resourceGroupId -Tag $tagsToSet
+
+					try {
+						Write-Verbose "Fetching resources in $($resourceGroupId)..."
+						$existingResources += Get-AzResource -ResourceGroupName $resourceGroupId
+					}
+					catch {
+						Write-Error "Issue locating resources in resource group: $($resourceGroupId)." -Category ObjectNotFound -CategoryTargetName "ResourceGroupIds"
+					}
+
 				}
 			}
 			else {
-				Write-Error "Provide resource id or resource group name." -Category InvalidArgument -CategoryTargetName $SettingsObject.ResourceGroupName
+				Write-Error "Provide resource id or resource group name." -Category InvalidArgument -CategoryTargetName "ResourceGroupIds"
 			}
 
-			foreach($resource in $resources) {
+			Write-Verbose "Tagging initiated.."
+
+			$resources  | ForEach-Object -Parallel {
 
 				$tagsToSet = @{}
-				$tagsToSet += $allTags
+				$tagsToSet += $using:allTags
+
+				$resource = $_
+
+				. "$using:PSScriptRoot/../../../Private/Utility/Merge-Hashtables.ps1"
 
 				if($resource.tags) {
-					$tagsToSet = MergeHashTables -hashtableToFilter $resource.tags -hashtableToAdd $tagsToSet
+					$tagsToSet = Merge-HashTables -HashtableToFilter $resource.tags -HashtableToAdd $tagsToSet
 				}
 
 				Write-Verbose "Setting tags for $($resource.name)..."
-				if ($resource.ResourceType -eq 'Microsoft.Network/frontdoors') {
+				if ($resource.ResourceType -eq 'Microsoft.Network/Frontdoors') {
+
 					# Work around as Azure FrontDoor does not support setting tags via PATCH operations
-					Set-AzFrontDoor -ResourceGroupName $resource.ResourceGroupName -Name $resource.Name -Tag $tagsToSet
+					Set-AzFrontDoor -ResourceGroupName $resource.ResourceGroupName -Name $resource.Name -Tag $tagsToSet > $null
 				}
 				else {
-					Set-AzResource -ResourceID $resource.Id -Tag $tagsToSet -Force
+					Set-AzResource -ResourceID $resource.Id -Tag $tagsToSet -Force > $null
 				}
 			}
 
-			Write-Verbose "Finished!"
+			Write-Verbose "Finished tagging resources!"
 		}
 	}
 	catch {

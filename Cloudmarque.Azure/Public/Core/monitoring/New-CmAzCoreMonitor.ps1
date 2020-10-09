@@ -29,7 +29,8 @@ function New-CmAzCoreMonitor {
 		[parameter(Mandatory = $true, ParameterSetName = "Settings File")]
 		[string]$SettingsFile,
 		[parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
-		[object]$SettingsObject
+		[object]$SettingsObject,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "stop"
@@ -92,6 +93,8 @@ function New-CmAzCoreMonitor {
 				if(!$actionGroup.Name -or !$actionGroup.ShortName) {
 					Write-Error "Please ensure a action group has a name, a shortname and at least one receiver." -Category InvalidArgument -CategoryTargetName "ActionGroups"
 				}
+
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "actionGroup" -ResourceServiceContainer $actiongroup
 			}
 
 			Write-Verbose "Generating monitoring resource names.."
@@ -99,12 +102,15 @@ function New-CmAzCoreMonitor {
     		$serviceHealthAlertName = Get-CmAzResourceName -Resource "ServiceHealthAlert" -Architecture "Core" -Region $SettingsObject.Location -Name $SettingsObject.Name
 
 			Write-Verbose "Deploying monitoring resource group ($monitoringResourceGroupName).."
+			$resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.monitoringResourceGroup }
+
 			New-AzResourceGroup `
 				-Name $monitoringResourceGroupName `
 				-Location $SettingsObject.Location `
+				-Tag $resourceGroupServiceTag `
 				-Force
 
-			Write-Verbose "Formatting action group receivers.."
+			Write-Verbose "Formatting action group recievers.."
 			Format-ActionGroupCollection -ActionGroups $SettingsObject.ActionGroups
 
 			Write-Verbose "Deploying monitoring resources.."
@@ -113,6 +119,7 @@ function New-CmAzCoreMonitor {
 				-TemplateFile "$PSScriptRoot/New-CmAzCoreMonitor.Monitoring.json" `
 				-ActionGroups $SettingsObject.ActionGroups `
 				-ServiceHealthAlertName $serviceHealthAlertName `
+				-ActivityLogAlertService $SettingsObject.service.publish.activityLogAlert `
 				-Force
 
 			Write-Verbose "Generating logging resource names.."
@@ -122,9 +129,12 @@ function New-CmAzCoreMonitor {
 			$workspaceName = Get-CmAzResourceName -Resource "LogAnalyticsworkspace" -Architecture "Core" -Region $SettingsObject.Location -Name $SettingsObject.Name
 
 			Write-Verbose "Deploying logging resource Group ($loggingResourceGroupName).."
+			$resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.loggingResourceGroup }
+			
 			New-AzResourceGroup `
 				-Name $loggingResourceGroupName `
 				-Location $SettingsObject.Location `
+				-Tag $resourceGroupServiceTag `
 				-Force
 
 			Write-Verbose "Deploying logging resources.."
@@ -133,6 +143,7 @@ function New-CmAzCoreMonitor {
 				-TemplateFile "$PSScriptRoot/New-CmAzCoreMonitor.Logging.json" `
 				-AppInsightsName $appInsightsName `
 				-StorageAccountName $storageName `
+				-ServiceContainer $SettingsObject.service.publish `
 				-WorkspaceName $workspaceName `
 				-Force
 
@@ -145,6 +156,11 @@ function New-CmAzCoreMonitor {
 			}
 
 			Set-AzAdvisorConfiguration -LowCpuThreshold $SettingsObject.AdvisorLowCPUThresholdPercentage
+
+			$resourceGroupsToSet = @($monitoringResourceGroupName)
+			$resourceGroupsToSet += $loggingResourceGroupName
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $resourceGroupsToSet
 
 			Write-Verbose "Finished!"
 		}

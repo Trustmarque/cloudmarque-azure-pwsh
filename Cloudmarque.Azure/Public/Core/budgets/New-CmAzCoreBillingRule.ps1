@@ -47,49 +47,49 @@ function New-CmAzCoreBillingRule {
 				Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
 			}
 
-			if (!$SettingsObject.Location) {
+			if (!$SettingsObject.location) {
 				Write-Error "Please provide a valid location." -Category InvalidArgument -CategoryTargetName "Location"
 			}
 
-			if (!$SettingsObject.Budgets) {
+			if (!$SettingsObject.budgets) {
 				Write-Error "Please provide at least one budget." -Category InvalidArgument -CategoryTargetName "Budgets"
 			}
 
-			$actionGroupResourceId = Get-CmAzService -Service "core.monitoring.actiongroup.priority1" -ThrowIfUnavailable | ForEach-Object { $_.ResourceId }
+			foreach($budget in $SettingsObject.budgets) {
 
-			$budgets = $SettingsObject.Budgets
+				Write-Verbose "Validating budget: $($budget.name)..."
 
-			foreach($budget in $budgets) {
-
-				Write-Verbose "Validating budget: $($budget.Name)..."
-
-				if (!$budget.Name) {
+				if (!$budget.name) {
 					Write-Error "Please provide a valid budget name." -Category InvalidArgument -CategoryTargetName "Budgets.Name"
 				}
-				elseif (!$budget.Category) {
+				elseif (!$budget.category) {
 					Write-Error "Please provide a valid category." -Category InvalidArgument -CategoryTargetName "Budgets.Category"
 				}
-				elseif (!$budget.AccountNumber) {
+				elseif (!$budget.accountNumber) {
 					Write-Error "Please provide a valid budget account number" -Category InvalidArgument -CategoryTargetName "Budgets.AccountNumber"
 				}
-				elseif (!$budget.Timegrain) {
+				elseif (!$budget.timegrain) {
 					Write-Error "Please provide a valid timegrain." -Category InvalidArgument -CategoryTargetName "Budgets.Timegrain"
 				}
-				elseif (!$budget.Amount) {
+				elseif (!$budget.amount) {
 					Write-Error "Please ensure the budget amount is greater than 0." -Category InvalidArgument -CategoryTargetName "Budgets.Amount"
 				}
-				elseif (!$budget.Thresholds) {
+				elseif (!$budget.thresholds) {
 					Write-Error "Please provide budget thresholds that are greater than 0." -Category InvalidArgument -CategoryTargetName "Budgets.Thresholds"
 				}
-				elseif (!$budget.StartDate -is [DateTime]) {
+				elseif (!($budget.startDate -Is [DateTime])) {
 					Write-Error "Please ensure the budget start date is a valid date." -Category InvalidArgument -CategoryTargetName "Budgets.StartDate"
 				}
-				elseif (!$budget.EndDate -is [DateTime]) {
+				elseif (!($budget.endDate -Is [DateTime])) {
 					Write-Error "Please ensure the budget end date is a valid date." -Category InvalidArgument -CategoryTargetName "Budgets.EndDate"
 				}
 
 				Write-Verbose "Generating budget name..."
-				$budget.Name = Get-CmAzResourceName -Resource "Budget" -Architecture "Core" -Region $SettingsObject.Location -Name $budget.Name
+				$budget.name = Get-CmAzResourceName -Resource "Budget" -Architecture "Core" -Region $SettingsObject.location -Name $budget.name
+
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "actiongroup" -ResourceServiceContainer $budget -IsDependency
+
+				$actionGroupResourceId = (Get-CmAzService -Service $budget.service.dependencies.actiongroup -ThrowIfUnavailable -ThrowIfMultiple).resourceId
 
 				# Workaround as ARM templates don't support additional copy objects nested within a copied resource.
 				# Required for multiple notifications over multiple budgets.
@@ -97,12 +97,12 @@ function New-CmAzCoreBillingRule {
 				Write-Verbose "Creating notifications for budget..."
 				$notifications = @{ }
 
-				for ($i = 0; $i -lt $budget.Thresholds.Count; $i++) {
+				for ($i = 0; $i -lt $budget.thresholds.count; $i++) {
 
 					$notifications["Notification$i"] = @{
 						enabled = $true;
 						operator = "GreaterThanOrEqualTo";
-						threshold = $budget.Thresholds[$i];
+						threshold = $budget.thresholds[$i];
 						contactGroups = @($actionGroupResourceId);
 						contactRoles = @(
 							"Owner",
@@ -112,15 +112,15 @@ function New-CmAzCoreBillingRule {
 					}
 				}
 
-				$budget.Notifications = $notifications
+				$budget.notifications = $notifications
 			}
 
 			Write-Verbose "Deploying budgets..."
 			New-AzDeployment `
-				-Location $SettingsObject.Location `
+				-Location $SettingsObject.location `
 				-TemplateFile "$PSScriptRoot\New-CmAzCoreBillingRule.json" `
-				-Budgets $budgets `
-				-AccountFlagName "cm.charge"
+				-AccountFlagName "cm-charge" `
+				-Budgets $SettingsObject.budgets
 
 			Write-Verbose "Finished!"
 		}

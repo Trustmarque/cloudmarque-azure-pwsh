@@ -1,5 +1,9 @@
 tableName: # route table tableName
 location: # Optional - defaults to resource group location
 
+service:
+    publish:
+      routeTable:
+
 routeGroup:
   - DefaultRouteGroup

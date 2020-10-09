@@ -1,11 +1,21 @@
 location: UK South
-desiredConfigName: 
-automationAccountTag:
-keyVault:
-  tag: core.security                                    # Optional, providing a keyvault will encrypt all vm disks
-  diskEncryptionKey:
+desiredConfigName:
+service:
+  dependencies:
+    automation:
+    keyvault:
+    vnet:                                               # Optional, providing a keyvault will encrypt all vm disks
+  publish:
+    resourceGroup:
+    vm:
+    nic:
+
+diskEncryptionKey:                                                                      
 groups:
   - name:                                               # Leave blank to have the vm collection provision its own resource group
+    service:
+      publish:
+        resourceGroup:
     virtualMachines:
       - name:
         size: Standard_B2ms
@@ -16,14 +26,21 @@ groups:
           offer: Windows-10
           sku: rs5-pro
           version: latest
+          location: East US
+        service:
+          publish:
+            vm:
+            nic:
         osDisk:
           osType: Windows
           diskSizeGB: 127  
         dataDiskSizes: [10]                             # Memory size for subsequent data disks, number of sizes provided dictates the number of data disks.
         networking:
+          service:
+            dependencies:
+              vnet:
           ipAddress:                                    # Leave blank for dynamic ip allocations
           subnetName: default                           # Subnet belonging to the virtual network
-          virtualNetworkTag: test.default
           
   #NOTE: To allow disk encryption for Linux, you need to have at least 8gb of ram available and the vm needs to be generation 1.
   #NOTE: Supported Linux distros for disk encryption are listed here https://docs.microsoft.com/en-us/azure/virtual-machines/linux/disk-encryption-overview#supported-vms-and-operating-systems        

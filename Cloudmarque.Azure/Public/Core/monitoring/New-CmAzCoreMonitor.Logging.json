@@ -39,6 +39,9 @@
         },
         "WorkspaceName": {
             "type": "string"
+        },
+        "ServiceContainer": {
+            "type": "object"
         }
     },
     "variables": {
@@ -57,7 +60,7 @@
             "name": "[parameters('AppInsightsName')]",
             "location": "[resourceGroup().location]",
             "tags": {
-                "cm.role": "core.appinsights."
+                "cm-service": "[parameters('ServiceContainer').appInsights]"
             },
             "properties": {
                 "ApplicationId": "[parameters('AppInsightsName')]"
@@ -69,7 +72,7 @@
             "name": "[parameters('workspaceName')]",
             "location": "[resourceGroup().location]",
             "tags": {
-                "cm-service": "core.logging.loganalytics"
+                "cm-service": "[parameters('ServiceContainer').workspace]"
             },
             "properties": {
                 "sku": {
@@ -87,8 +90,6 @@
             "name": "[concat(parameters('workspaceName'), '/', subscription().subscriptionId)]",
             "type": "Microsoft.OperationalInsights/workspaces/dataSources",
             "apiVersion": "2015-11-01-preview",
-            "tags": {
-            },
             "properties": {
                 "linkedResourceId": "[concat(subscription().Id, '/providers/Microsoft.Insights/eventTypes/management')]"
             },
@@ -103,6 +104,9 @@
             "location": "[resourceGroup().location]",
             "name": "[concat(parameters('Solutions')[copyIndex('SolutionsCopy')].type, '(', parameters('workspaceName'), ')')]",
             "id": "[resourceId('microsoft.operationsManagement/Solutions', concat(parameters('Solutions')[copyIndex('SolutionsCopy')].type, '(', parameters('workspaceName'), ')'))]",
+            "tags": {
+                "cm-service": "[parameters('ServiceContainer').solution]"
+            },
             "properties": {
                 "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
             },
@@ -127,7 +131,7 @@
             "location": "[resourceGroup().location]",
             "kind": "StorageV2",
             "tags": {
-                "cm.role": "core.storage"
+                "cm-service": "[parameters('ServiceContainer').storage]"
             },
             "properties": {
                 "accessTier": "Hot",

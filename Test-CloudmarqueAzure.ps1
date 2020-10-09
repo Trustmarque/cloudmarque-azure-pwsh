@@ -27,7 +27,7 @@
             @{ ModuleName = "PSScriptAnalyzer"; ModuleVersion = "1.19.1" }
         );
 
-        . ./Cloudmarque.Azure/Install-Dependencies.ps1 -AdditionalModules $modules -Scope $Scope -ImportModules $true -Verbose
+        .$PSScriptRoot/Cloudmarque.Azure/Install-Dependencies.ps1 -AdditionalModules $modules -Scope $Scope -ImportModules $true -Verbose
 
         $publishPath = "$PSScriptRoot\publish"
         $testDirectory = "tests"

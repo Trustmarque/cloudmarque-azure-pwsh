@@ -1,5 +1,11 @@
-Name:
-Location: UK South
-RedirectUrl: 
-CustomDomain: 
-RedirectPublicIpAddress:        # Optional
+name:
+location: UK South
+redirectUrl: 
+customDomain: 
+redirectPublicIpAddress:        # Optional
+service:
+  publish:
+    resourceGroup:
+    cdn:
+    storage:
+    endpoint:

@@ -1,18 +1,39 @@
 resourceGroupName: recoveryServicesVaults
 location: East US
+service:
+  dependencies:
+    workspace:
+  publish:
+    resourceGroup:
+    recoveryVault:
 recoveryServicesVaults:
 - name: bk01
   backupLevel: Standard
   location: East US
+  service:
+    publish:
+      recoveryVault:
 - name: bk02
   backupLevel: Standard
   location: SouthCentral US
+  service:
+    publish:
+      recoveryVault:
 - name: bk03
   backupLevel: Standard
   location: West US
+  service:
+    publish:
+      recoveryVault:
 - name: bk04
   backupLevel: Standard
   location: SouthCentral US
+  service:
+    publish:
+      recoveryVault:
 - name: bk05
   backupLevel: Standard
   location: West US
+  service:
+    publish:
+      recoveryVault:

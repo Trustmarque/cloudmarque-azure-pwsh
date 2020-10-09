@@ -1,5 +1,8 @@
 nsgName:
 location: # Optional - defaults to resource group location
+service:
+    publish:
+      networkSecurityGroup:
 
 rules:
   - destinationIp:

@@ -1,4 +1,4 @@
-{
+﻿{
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
@@ -67,6 +67,9 @@
                             "apiVersion": "2019-06-01-preview",
                             "location": "[parameters('Location')]",
                             "name": "[parameters('sqlObject').serverName]",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').service.publish.server]"
+                            },
                             "properties": {
                                 "administratorLogin": "[parameters('sqlObject').administratorLogin]",
                                 "administratorLoginPassword": "[parameters('adminPassword')]"
@@ -133,15 +136,18 @@
                             "type": "Microsoft.Sql/servers/databases",
                             "apiVersion": "2019-06-01-preview",
                             "location": "[parameters('Location')]",
-                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('addDatabasesInElasticPool')])]",
+                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('addDatabasesToSqlServer')].name)]",
                             "dependsOn": [
                                 "[concat('Microsoft.Sql/servers/', parameters('sqlObject').serverName)]",
                                 "[concat('Microsoft.Sql/servers/', parameters('sqlObject').serverName ,'/elasticpools/', parameters('sqlObject').elasticPoolProperties.elasticPoolName)]"
                             ],
                             "sku": "[if(equals(parameters('SqlObject').type, 'single'), parameters('sqlObject').sku, json('null'))]",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').databases[copyIndex('addDatabasesToSqlServer')].service.publish.database]"
+                            },
                             "properties": "[if(equals(parameters('SqlObject').type, 'elasticpool'), parameters('sqlObject').elasticPoolProperties, json('null'))]",
                             "copy": {
-                                "name": "addDatabasesInElasticPool",
+                                "name": "addDatabasesToSqlServer",
                                 "count": "[if(greater(length(parameters('sqlObject').databases), 1), length(parameters('sqlObject').databases), 1)]"
                             },
                             "resources": [
@@ -151,7 +157,7 @@
                                     "name": "Microsoft.Insights/service",
                                     "apiVersion": "2017-05-01-preview",
                                     "dependsOn": [
-                                        "[concat('Microsoft.Sql/servers/', parameters('sqlObject').serverName ,'/databases/', parameters('sqlObject').databases[copyIndex('addDatabasesInElasticPool')])]"
+                                        "[concat('Microsoft.Sql/servers/', parameters('sqlObject').serverName ,'/databases/', parameters('sqlObject').databases[copyIndex('addDatabasesToSqlServer')].name)]"
 
                                     ],
                                     "properties": {
@@ -232,7 +238,7 @@
                                     "name": "audit",
                                     "apiVersion": "2017-03-01-preview",
                                     "dependsOn": [
-                                        "[parameters('sqlObject').databases[copyIndex('addDatabasesInElasticPool')]]"
+                                        "[parameters('sqlObject').databases[copyIndex('addDatabasesToSqlServer')].name]"
                                     ],
                                     "properties": {
                                         "State": "Enabled",
@@ -252,6 +258,9 @@
                             "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').elasticPoolProperties.elasticPoolName)]",
                             "sku": "[parameters('sqlObject').sku]",
                             "properties": {
+                            },
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').service.publish.elasticpool]"
                             }
                         },
                         {
@@ -260,6 +269,9 @@
                             "type": "Microsoft.DBforPostgreSQL/servers",
                             "location": "[parameters('Location')]",
                             "name": "[parameters('sqlObject').serverName]",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').service.publish.server]"
+                            },
                             "sku": "[if(equals(parameters('SqlObject').family, 'Microsoft.DBforPostgreSQL'), parameters('sqlObject').sku, json('null'))]",
                             "properties": {
                                 "administratorLogin": "[parameters('sqlObject').administratorLogin]",
@@ -339,8 +351,11 @@
                         },
                         {
                             "condition": "[equals(parameters('SqlObject').family, 'Microsoft.DBforPostgreSQL')]",
-                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('pgsqldatabaseArray')])]",
+                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('pgsqldatabaseArray')].name)]",
                             "type": "Microsoft.DBforPostgreSQL/servers/databases",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').databases[copyIndex('pgsqldatabaseArray')].service.publish.database]"
+                            },
                             "apiVersion": "2017-12-01",
                             "properties": {
                                 "charset": "utf8",
@@ -365,6 +380,9 @@
                                 "administratorLogin": "[parameters('sqlObject').administratorLogin]",
                                 "administratorLoginPassword": "[parameters('adminPassword')]",
                                 "createMode": "Default"
+                            },
+                           "tags": {
+                                "cm-service": "[parameters('SqlObject').service.publish.server]"
                             },
                             "resources": [
                                 {
@@ -417,7 +435,7 @@
                                 "[concat('Microsoft.DBforMySQL/servers/', parameters('sqlObject').serverName)]"
                             ],
                             "location": "[parameters('Location')]",
-                            "name": "[concat(parameters('sqlObject').serverName,'/','Cm-firewallRule-', copyIndex('firewallRulesCopy'))]",
+                            "name": "[concat(parameters('sqlObject').serverName,'/','CmfirewallRule-', copyIndex('firewallRulesCopy'))]",
                             "properties": {
                                 "startIpAddress": "[parameters('sqlObject').firewallRules[copyIndex('firewallRulesCopy')].startIpAddress]",
                                 "endIpAddress": "[parameters('sqlObject').firewallRules[copyIndex('firewallRulesCopy')].endIpAddress]"
@@ -431,9 +449,12 @@
                         },
                         {
                             "condition": "[equals(parameters('SqlObject').family, 'Microsoft.DBforMySQL')]",
-                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('mysqldatabaseArray')])]",
+                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('mysqldatabaseArray')].name)]",
                             "type": "Microsoft.DBforMySQL/servers/databases",
                             "apiVersion": "2017-12-01",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').databases[copyIndex('mysqldatabaseArray')].service.publish.database]"
+                            },
                             "properties": {
                                 "charset": "utf8",
                                 "collation": "utf8_general_ci"
@@ -453,6 +474,9 @@
                             "location": "[parameters('Location')]",
                             "name": "[parameters('sqlObject').serverName]",
                             "sku": "[if(equals(parameters('SqlObject').family, 'Microsoft.DBforMariaDB'), parameters('sqlObject').sku, json('null'))]",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').service.publish.server]"
+                            },
                             "properties": {
                                 "administratorLogin": "[parameters('sqlObject').administratorLogin]",
                                 "administratorLoginPassword": "[parameters('adminPassword')]",
@@ -523,9 +547,12 @@
                         },
                         {
                             "condition": "[equals(parameters('SqlObject').family, 'Microsoft.DBforMariaDB')]",
-                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('mariadatabaseArray')])]",
+                            "name": "[concat(parameters('sqlObject').serverName, '/', parameters('sqlObject').databases[copyIndex('mariadatabaseArray')].name)]",
                             "type": "Microsoft.DBforMariaDB/servers/databases",
                             "apiVersion": "2018-06-01",
+                            "tags": {
+                                "cm-service": "[parameters('SqlObject').databases[copyIndex('mariadatabaseArray')].service.publish.database]"
+                            },
                             "properties": {
                                 "charset": "utf8",
                                 "collation": "utf8_general_ci"

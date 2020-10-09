@@ -48,18 +48,21 @@
 				Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
 			}
 
-			$automationService = Get-CmAzService -Service $SettingsObject.automationAccountServiceTag -Region $SettingsObject.location -ThrowIfUnavailable
+			$automationService = Get-CmAzService -Service $SettingsObject.service.dependencies.automation -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple
 			$cmDeleteRunbook = "Delete-TaggedResource.Runbook"
 
 			# Check Modules and install them if not available
-			$modules = @(
-				"Az.Accounts",
-				"Az.Resources",
-				"Cloudmarque.Azure"
-			)
+			$dataFile = (Import-PowerShellDataFile "./Cloudmarque.Azure/Cloudmarque.Azure.psd1") 
+			
+			$modules = $dataFile.requiredModules
+
+			$modules += @{
+				"ModuleName" = $dataFile.rootModule.TrimEnd(".psm1");
+				"RequiredVersion" = $dataFile.moduleVersion
+			}
 
 			Foreach ($module in $modules) {
-				$moduleStatus = Get-AzAutomationModule -AutomationAccountName $automationService.name -ResourceGroupName $automationService.resourceGroupName | Where-Object {$_.Name -match $module}
+				$moduleStatus = Get-AzAutomationModule -AutomationAccountName $automationService.name -ResourceGroupName $automationService.resourceGroupName | Where-Object {$_.name -match $module}
 
 				if(!$moduleStatus) {
 					Write-Output "$module not Found. I will be imported in automation account shared resources."
@@ -77,7 +80,7 @@
 			}
 
 			Write-Verbose "Importing Runbook into the automation account."
-			Import-AzAutomationRunbook -Name $cmDeleteRunbook -Path "$PSScriptRoot/../../../../Private/Runbooks/Delete-TaggedResource.Runbook.ps1" `
+			Import-AzAutomationRunbook -Name $cmDeleteRunbook -Path "$PSScriptRoot/../../../../Runbooks/Delete-TaggedResource.Runbook.ps1" `
 				-ResourceGroupName $automationService.resourceGroupName -AutomationAccountName $automationService.name `
 				-Type PowerShell -Published
 

@@ -3,22 +3,24 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "ActionGroups": {
-            "type": "array",
-            "defaultValue": [
-            ]
+            "type": "Array",
+            "defaultValue": []
         },
         "ServiceHealthAlertName": {
-            "type": "string"
+            "type": "String"
+        },
+        "ActivityLogAlertService": {
+            "type": "String"
         }
     },
     "resources": [
         {
             "type": "Microsoft.Insights/actionGroups",
             "apiVersion": "2019-03-01",
-            "name": "[parameters('ActionGroups')[copyIndex()].name]",
+            "name": "[parameters('ActionGroups')[copyIndex('ActionGroupCopy')].name]",
             "location": "Global",
             "tags": {
-                "cm-service": "[concat('core.monitoring.actiongroup.priority', add(copyIndex(), 1), '.default')]"
+                "cm-service": "[parameters('ActionGroups')[copyIndex('ActionGroupCopy')].service.publish.actionGroup]"
             },
             "properties": {
                 "groupShortName": "[parameters('ActionGroups')[copyIndex('ActionGroupCopy')].shortName]",
@@ -47,6 +49,9 @@
             "dependsOn": [
                 "[resourceId('microsoft.insights/actionGroups', parameters('ActionGroups')[0].name)]"
             ],
+            "tags": {
+                "cm-service": "[parameters('ActivityLogAlertService')]"
+            },
             "properties": {
                 "scopes": [
                     "[subscription().Id]"

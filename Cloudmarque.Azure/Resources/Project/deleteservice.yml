@@ -1,5 +1,7 @@
 location:                           # Automation account location
-automationAccountServiceTag:        # Automation account service tag (ex cm-service: coreAccount)
+service:
+  dependencies:
+    automation:
 
 schedule:                           # Optional (Below defaults are)
   startDate:                        # Date format: yyyy-mm-dd (Default: Tomorrow)

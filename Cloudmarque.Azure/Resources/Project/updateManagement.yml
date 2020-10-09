@@ -1,3 +1,7 @@
+service:
+  dependencies:
+    automation:
+    logAnalytics:
 location: UK South
 windowsUpdateSchedules:
   - name: WindowsVMUpdate

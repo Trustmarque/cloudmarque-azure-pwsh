@@ -28,10 +28,11 @@ function New-CmAzCoreKeyVault {
 
 	[CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
 	param(
-		[parameter(Mandatory=$true, ParameterSetName = "Settings File")]
+		[parameter(Mandatory = $true, ParameterSetName = "Settings File")]
 		[String]$SettingsFile,
-		[parameter(Mandatory=$true, ParameterSetName = "Settings Object")]
-		[Object]$SettingsObject
+		[parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
+		[Object]$SettingsObject,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -47,55 +48,61 @@ function New-CmAzCoreKeyVault {
 				Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
 			}
 
-			if (!$SettingsObject.ResourceGroupName) {
+			if (!$SettingsObject.resourceGroupName) {
 				Write-Error "Please provide a valid resource group name." -Category InvalidArgument -CategoryTargetName "ResourceGroupName"
 			}
 
-			if (!$SettingsObject.Location) {
+			if (!$SettingsObject.location) {
 				Write-Error "Please provide a valid location." -Category InvalidArgument -CategoryTargetName "Location"
 			}
 
-			if (!$SettingsObject.KeyVaults) {
+			if (!$SettingsObject.keyVaults) {
                 Write-Error "Please provide at least one keyvault." -Category InvalidArgument -CategoryTargetName "Keyvaults"
 			}
 
 			Write-Verbose "Generating standardised Key Vault names..."
-			ForEach ($keyVault in $SettingsObject.KeyVaults) {
+			ForEach ($keyVault in $SettingsObject.keyVaults) {
 
-				if(!$keyVault.Name -or !$keyVault.Type -or !$keyVault.location) {
+				if(!$keyVault.name -or !$keyVault.type -or !$keyVault.location) {
 					Write-Error "Please ensure a keyvault has a name, a type and a location." -Category InvalidArgument -CategoryTargetName "Keyvaults"
 				}
 
-				$keyVault.Name = Get-CmAzResourceName -Resource "KeyVault" -Architecture "Core" -Region $KeyVault.Location -Name $KeyVault.Name -MaxLength 24
+				$keyVault.name = Get-CmAzResourceName -Resource "KeyVault" -Architecture "Core" -Region $keyVault.location -Name $keyVault.name -MaxLength 24
+			
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "keyvault" -ResourceServiceContainer $keyVault
+				Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "activityLogAlert" -ResourceServiceContainer $keyVault
 			}
 
 			Write-Verbose "Generating keyvault resource group name..."
-			$keyVaultResourceGroup = Get-CmAzResourceName -Resource "ResourceGroup" -Architecture "Core" -Region $SettingsObject.Location -Name $SettingsObject.ResourceGroupName
+			$keyVaultResourceGroup = Get-CmAzResourceName -Resource "ResourceGroup" -Architecture "Core" -Region $SettingsObject.location -Name $SettingsObject.resourceGroupName
 
 			Write-Verbose "Deploying keyvault resource group..."
-			New-AzResourceGroup -Location $SettingsObject.Location -Name $keyVaultResourceGroup -Force
+			$resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.resourceGroup }
+			New-AzResourceGroup -Location $SettingsObject.location -Name $keyVaultResourceGroup -Tag $resourceGroupServiceTag -Force
 
 			$userObjectID = ""
-			$azCtx = (Get-AzContext).Account
+			$azCtx = (Get-AzContext).account
 
-			switch ($azCtx.Type)
+			switch ($azCtx.type)
 			{
-				"ServicePrincipal" { $userObjectID = $azCtx.Id }
-				"User" { $userObjectID = (Get-AzADUser -UserPrincipalName $azCtx.Id).Id }
+				"ServicePrincipal" { $userObjectID = $azCtx.id }
+				"User" { $userObjectID = (Get-AzADUser -UserPrincipalName $azCtx.id).id }
 			}
 
-			$workspace = Get-CmAzService -Service "core.loganalytics" -Region $SettingsObject.Location -ThrowIfUnavailable
-			$actionGroup = Get-CmAzService -Service "core.monitoring.actiongroup.priority1" -ThrowIfUnavailable
-
+			$workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -ThrowIfUnavailable -ThrowIfMultiple
+			$actionGroup = Get-CmAzService -Service $SettingsObject.service.dependencies.actiongroup -ThrowIfUnavailable -ThrowIfMultiple
+			
 			Write-Verbose "Deploying keyvaults..."
 			New-AzResourceGroupDeployment `
 				-TemplateFile "$PSScriptRoot\New-CmAzCoreKeyVault.json" `
 				-ResourceGroupName $keyVaultResourceGroup `
-				-Keyvaults $SettingsObject.KeyVaults `
 				-ActionGroup $actionGroup `
-				-Workspace $workspace `
+				-Keyvaults $SettingsObject.KeyVaults `
 				-ObjectId $UserObjectID `
+				-Workspace $workspace `
 				-Force
+
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $keyVaultResourceGroup
 
 			Write-Verbose "Finished!"
 		}

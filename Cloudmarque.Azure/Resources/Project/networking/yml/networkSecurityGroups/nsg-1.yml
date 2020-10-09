@@ -3,6 +3,9 @@
 
 - nsgName:
   location: # Optional - defaults to resource group location
+  service:
+    publish:
+      networkSecurityGroup:
   ruleGroup:
     - defaultNsgRules
   rules:
@@ -16,9 +19,13 @@
       Description:
       direction:
       protocol:
+
 - nsgName:
   ruleGroup:
     - defaultNsgRules
+  service:
+    publish:
+      networkSecurityGroup:
   rules:
     - destinationIp:
       ruleName:

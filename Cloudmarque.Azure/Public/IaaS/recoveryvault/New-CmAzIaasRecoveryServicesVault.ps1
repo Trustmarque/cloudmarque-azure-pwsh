@@ -1,4 +1,5 @@
-function New-CmAzRecoveryServicesVault {
+function New-CmAzIaasRecoveryServicesVault {
+    
     <#
         .Synopsis
          Creation of Azure Recovery Services Vault.
@@ -22,23 +23,24 @@ function New-CmAzRecoveryServicesVault {
          Core
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml
+         New-CmAzIaasRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml -PolicySettingsFile C:\ProjectDirectory\RecoveryServicesPolicy.yml
+         New-CmAzIaasRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml -PolicySettingsFile C:\ProjectDirectory\RecoveryServicesPolicy.yml
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml -PolicySettingsObject $policies
+         New-CmAzIaasRecoveryServicesVault -SettingsFile C:\ProjectDirectory\RecoveryServicesVault.yml -PolicySettingsObject $policies
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsObject $settings
+         New-CmAzIaasRecoveryServicesVault -SettingsObject $settings
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsObject $settings -PolicySettingsFile C:\ProjectDirectory\RecoveryServicesPolicy.yml
+         New-CmAzIaasRecoveryServicesVault -SettingsObject $settings -PolicySettingsFile C:\ProjectDirectory\RecoveryServicesPolicy.yml
 
         .Example
-         New-CmAzRecoveryServicesVault -SettingsObject $settings -PolicySettingsObject $policies
-	#>
+         New-CmAzIaasRecoveryServicesVault -SettingsObject $settings -PolicySettingsObject $policies
+    #>
+    
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     [OutputType([Hashtable])]
     param(
@@ -47,7 +49,8 @@ function New-CmAzRecoveryServicesVault {
         [parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
         [Object]$SettingsObject,
         [String]$PolicySettingsFile,
-        [Object]$PolicySettingsObject
+        [Object]$PolicySettingsObject,
+		[String]$TagSettingsFile
     )
 
     $ErrorActionPreference = "Stop"
@@ -72,55 +75,61 @@ function New-CmAzRecoveryServicesVault {
 
         Write-Verbose "Generated standardised Resource Group Name: $resourceGroupName"
         Write-Verbose "Checking if Resource Group exists."
-        if (!(Get-AzResourceGroup -Name $resourceGroupName -ErrorAction SilentlyContinue)) {
+
+        $existingResourceGroup = Get-AzResourceGroup -Name $resourceGroupName -ErrorAction SilentlyContinue
+
+        if (!$existingResourceGroup) {
             Write-Verbose "Resource Group does not exist, creating."
-            $ReturnResourceGroup = New-AzResourceGroup -Location $SettingsObject.location -Name $resourceGroupName -ErrorAction Stop
+            $resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.resourceGroup }
+            New-AzResourceGroup -Location $SettingsObject.location -Name $resourceGroupName -Tag $resourceGroupServiceTag -Force
         }
 
         Write-Verbose "Generating standardised Recovery Services Vault names."
         Foreach ($vault in $SettingsObject.recoveryServicesVaults) {
             $vault.name = Get-CmAzResourceName -Resource "recoveryservicesvault" -Architecture "Core" -Region $vault.location -Name $vault.name
             Write-Verbose "Generated standardised Key Vault name: $($vault.name)"
+
+            Set-GlobalServiceValues -GlobalServiceContainer $SettingsObject -ServiceKey "recoveryVault" -ResourceServiceContainer $vault
         }
 
-        $workspace = Get-CmAzService -Service 'core.loganalytics1' -Region $SettingsObject.Location -ThrowIfUnavailable
+        $workspace = Get-CmAzService -Service $SettingsObject.service.dependencies.workspace -Region $SettingsObject.location -ThrowIfUnavailable -ThrowIfMultiple
 
         Write-Verbose "Deploying Azure ARM template for Recovery Services Vaults."
-        $ReturnRecoveryServicesVault = New-AzResourceGroupDeployment `
+        New-AzResourceGroupDeployment `
             -ResourceGroupName $resourceGroupName `
-            -TemplateFile "$PSScriptRoot\New-CmAzRecoveryServicesVault.json" `
+            -TemplateFile "$PSScriptRoot\New-CmAzIaasRecoveryServicesVault.json" `
             -RecoveryServicesVaults $SettingsObject.recoveryServicesVaults `
-            -WhatIf:$WhatIfPreference
-        Write-Verbose "Completed."
+            -Force
 
         Write-Verbose "Deploying Azure ARM template for Recovery Services Diagnostics."
         Foreach ($vault in $SettingsObject.recoveryServicesVaults) {
-            $ReturnRecoveryServicesPolicy = New-AzResourceGroupDeployment `
+            New-AzResourceGroupDeployment `
                 -ResourceGroupName $resourceGroupName `
-                -TemplateFile "$PSScriptRoot\New-CmAzRecoveryServicesDiagnostics.json" `
+                -TemplateFile "$PSScriptRoot\New-CmAzIaasRecoveryServicesDiagnostics.json" `
                 -VaultName $vault.name `
                 -Workspace $workspace `
-                -WhatIf:$WhatIfPreference
+                -Force
         }
-        Write-Verbose "Completed."
 
         if ($PolicySettingsObject) {
 
             Write-Verbose "Deploying Azure ARM template for Recovery Services Policies."
             Foreach ($vault in $SettingsObject.recoveryServicesVaults) {
-                $ReturnRecoveryServicesPolicy = New-AzResourceGroupDeployment `
+                New-AzResourceGroupDeployment `
                     -ResourceGroupName $resourceGroupName `
-                    -TemplateFile "$PSScriptRoot\New-CmAzRecoveryServicesPolicy.json" `
+                    -TemplateFile "$PSScriptRoot\New-CmAzIaasRecoveryServicesPolicy.json" `
                     -VaultName $vault.name `
-                    -PolicyObject $PolicySettingsObject `
-                    -WhatIf:$WhatIfPreference
+                    -Policies $PolicySettingsObject.policies
             }
-            Write-Verbose "Completed."
+        }
+
+        if($existingResourceGroup) {
+            Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceIds $SettingsObject.recoveryServicesVaults.name
+        }
+        else {
+            Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $resourceGroupName
         }
     }
-    return @{
-        ResourceGroup          = $ReturnResourceGroup
-        RecoveryServicesVault  = $ReturnRecoveryServicesVault
-        RecoveryServicesPolicy = $ReturnRecoveryServicesPolicy
-    }
+
+    Write-Verbose "Finished!"
 }

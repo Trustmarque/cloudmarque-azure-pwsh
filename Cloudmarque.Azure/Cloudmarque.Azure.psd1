@@ -52,10 +52,10 @@ PowerShellVersion = '7.0'
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
     @{ ModuleName = 'Az.Accounts'; ModuleVersion = '1.9.3'; },
-    @{ ModuleName = 'Az.Advisor'; RequiredVersion = '1.1.1'; }, 
-    @{ ModuleName = 'Az.ApiManagement'; RequiredVersion = '2.1.0'; }, 
+    @{ ModuleName = 'Az.Advisor'; RequiredVersion = '1.1.1'; },
+    @{ ModuleName = 'Az.ApiManagement'; RequiredVersion = '2.1.0'; },
     @{ ModuleName = 'Az.Automation'; RequiredVersion = '1.4.0'; },
-    @{ ModuleName = 'Az.Cdn'; RequiredVersion = '1.4.3'; }, 
+    @{ ModuleName = 'Az.Cdn'; RequiredVersion = '1.4.3'; },
     @{ ModuleName = 'Az.Compute'; RequiredVersion = '4.3.1'; },
     @{ ModuleName = 'Az.DesktopVirtualization'; RequiredVersion = '2.0.0'; },
     @{ ModuleName = 'Az.FrontDoor'; RequiredVersion = '1.6.1'; },
@@ -83,11 +83,11 @@ RequiredModules = @(
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Clear-CmAzContext', 'Get-CmAzContext', 'Get-CmAzResourceName', 
-                'Get-CmAzService', 'Get-CmAzSettingsFile', 'Get-CmAzSubscriptionName', 
-                'New-CmAzProject', 'Set-CmAzContext', 'Test-CmAzPackage', 
-                'New-CmAzCore', 'New-CmAzCoreAutomation', 
-                'Set-CmAzCoreAutomationDeleteResource', 'New-CmAzCoreBillingRule', 
+FunctionsToExport = 'Clear-CmAzContext', 'Get-CmAzContext', 'Get-CmAzResourceName',
+                'Get-CmAzService', 'Get-CmAzSettingsFile', 'Get-CmAzSubscriptionName',
+                'New-CmAzProject', 'Set-CmAzContext', 'Test-CmAzPackage',
+                'New-CmAzCore', 'New-CmAzCoreAutomation',
+                'Set-CmAzCoreAutomationDeleteResource', 'New-CmAzCoreBillingRule',
                 'New-CmAzCoreKeyVault', 'New-CmAzCoreMonitor',
                 'New-CmAzRecoveryServicesVault', 'Set-CmAzCoreTag',
                 'New-CmAzIaasBastionHost', 'New-CmAzIaasNetworking', 'New-CmAzIaasVm',
@@ -153,4 +153,3 @@ HelpInfoURI = 'https://docs.trustmarque.com/cloudmarque/'
 # Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 # DefaultCommandPrefix = ''
 }
-    

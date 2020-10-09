@@ -32,7 +32,8 @@
 		[parameter(Mandatory = $true, ParameterSetName = "Settings File")]
 		[String]$SettingsFile,
 		[parameter(Mandatory = $true, ParameterSetName = "Settings Object")]
-		[Object]$SettingsObject
+		[Object]$SettingsObject,
+		[String]$TagSettingsFile
 	)
 
 	$ErrorActionPreference = "Stop"
@@ -48,7 +49,6 @@
 				Write-Error "No valid input settings." -Category InvalidArgument -CategoryTargetName "SettingsObject"
 			}
 
-			$permanentPSScriptRoot = $PSScriptRoot
 			$resourceGroupName = Get-CmAzResourceName -Resource "ResourceGroup" -Architecture "PaaS" -Region $SettingsObject.location -Name $SettingsObject.resourceGroupName
 			$frontdoorName = Get-CmAzResourceName -Resource "FrontDoor" -Architecture "PaaS" -Region $SettingsObject.location -Name $SettingsObject.frontdoor.hostName
 			$applicationInstrumentationKey = "none"
@@ -57,7 +57,8 @@
 				$applicationInstrumentationKey = $SettingsObject.monitoring.applicationInstrumentationKey
 			}
 
-			New-AzResourceGroup -ResourceGroupName $resourceGroupName -Location $SettingsObject.location -Tag @{ "cm-service" = $SettingsObject.ResourceGroupTag } -Force
+			$resourceGroupServiceTag = @{ "cm-service" = $SettingsObject.service.publish.resourceGroup }
+			New-AzResourceGroup -ResourceGroupName $resourceGroupName -Location $SettingsObject.location -Tag $resourceGroupServiceTag -Force
 
 			$frontdoorCheck = Get-AzFrontDoor -Name $frontdoorName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
 
@@ -69,9 +70,12 @@
 			# Crawl across SettingsObject and create defined webapps
 			$SettingsObject.AppServicePlans | ForEach-Object -Parallel {
 
+				. "$using:PSScriptRoot/../../../Private/Tagging/Set-GlobalServiceValues.ps1"
+
+				$threadSettingsObject = $using:SettingsObject
 				$threadResourceGroupName = $using:resourceGroupName
-				$threadPermanentPSScriptRoot = $using:permanentPSScriptRoot
-				$threadApplicationInstrumentationKey = $using:applicationInstrumentationKey
+
+				Set-GlobalServiceValues -GlobalServiceContainer $threadSettingsObject -ServiceKey "appServicePlan" -ResourceServiceContainer $_
 
 				foreach ($app in $_.Webapps) {
 
@@ -79,20 +83,77 @@
 					$_.Name = Get-CmAzResourceName -Resource "AppServicePlan" -Architecture "PaaS" -Region $_.Region -Name $_.Name
 					$app.generatedName = Get-CmAzResourceName -Resource "WebApp" -Architecture "PaaS" -Region $_.Region -Name $app.Name
 
+					Set-GlobalServiceValues -GlobalServiceContainer $threadSettingsObject -ServiceKey "webapp" -ResourceServiceContainer $app
+
+					$app.service.publish.appServicePlan = $_.service.publish.appServicePlan
+
+					$slots = @()
+
+					if($app.Slots -Is [System.String]) {
+						$slots = $app.slots | Select-Object { @{ Name = $_; }}
+					}
+					else {
+						$slots = $app.slots
+					}
+
+					foreach ($slot in $slots) {
+						Set-GlobalServiceValues -GlobalServiceContainer $threadSettingsObject -ServiceKey "slot" -ResourceServiceContainer $slot
+					}
+
 					New-AzResourceGroupDeployment  `
 						-Name $app.generatedName `
 						-ResourceGroupName $threadResourceGroupName `
-						-TemplateFile "$threadPermanentPSScriptRoot\New-CmAzPaasWeb.json" `
+						-TemplateFile "$using:PSScriptRoot\New-CmAzPaasWeb.json" `
 						-WebAppName $app.generatedName `
 						-Kind "linux" `
 						-LinuxFxVersion $app.Runtime `
 						-AppServicePlanName $_.Name `
 						-Sku $_.Sku `
-						-Location $_.Region `
-						-StagingSlotName ($app.Slots).ToArray() `
-						-AppInstrumatationKey $threadApplicationInstrumentationKey `
-						-Force `
-						-Verbose
+						-Location $_.region `
+						-SlotNames $slots `
+						-AppInstrumatationKey $using:applicationInstrumentationKey `
+						-ServiceContainer $app.service.publish `
+						-Force
+
+					if ($app.contentDeliveryNetwork.profileName -And $app.contentDeliveryNetwork.endpointName) {
+
+						$app.contentDeliveryNetwork.profileName = Get-CmAzResourceName -Resource "CdnProfile" -Architecture "PaaS" -Region $_.region -Name $app.contentDeliveryNetwork.profileName
+						$app.contentDeliveryNetwork.endpointName = Get-CmAzResourceName -Resource "Endpoint" -Architecture "PaaS" -Region $_.region -Name $app.contentDeliveryNetwork.endpointName
+
+						Write-Verbose "Resource type identified to be : $($resourceType)"
+		
+						$webApp = Get-AzWebApp -ResourceGroupName $threadResourceGroupName -Name $app.generatedName -ErrorAction SilentlyContinue
+
+						if ($webApp) {
+							$domain = ($webApp).DefaultHostName
+						}
+						else {
+							Write-Verbose "$($app.generatedName) not found."
+						}
+
+						Set-GlobalServiceValues -GlobalServiceContainer $threadSettingsObject -ServiceKey "cdn" -ResourceServiceContainer $app.contentDeliveryNetwork
+						Set-GlobalServiceValues -GlobalServiceContainer $threadSettingsObject -ServiceKey "endpoint" -ResourceServiceContainer $app.contentDeliveryNetwork
+
+						if (!(Get-AzCdnProfile -ProfileName $app.contentDeliveryNetwork.profileName)) {
+							New-AzCdnProfile `
+							-ProfileName $app.contentDeliveryNetwork.profileName `
+							-ResourceGroupName $threadResourceGroupName `
+							-Sku $app.contentDeliveryNetwork.Sku `
+							-Location $_.region `
+							-Tag @{ "cm-service" = $app.contentDeliveryNetwork.service.publish.cdn }
+						}
+
+						if (!(Get-AzCdnEndpoint -ProfileName $app.contentDeliveryNetwork.profileName -ResourceGroupName $threadResourceGroupName)) {
+							New-AzCdnEndpoint `
+								-EndpointName $app.contentDeliveryNetwork.endpointName `
+								-ProfileName $app.contentDeliveryNetwork.profileName `
+								-Location $_.region `
+								-ResourceGroupName $threadResourceGroupName `
+								-OriginName $app.generatedName `
+								-OriginHostName $domain `
+								-Tag @{ "cm-service" = $app.contentDeliveryNetwork.service.publish.endpoint }
+						}
+					}
 
 					Write-Verbose "$($app.Name) is created"
 				}
@@ -105,6 +166,10 @@
 					Continue
 				}
 
+				. "$using:PSScriptRoot/../../../Private/Tagging/Set-GlobalServiceValues.ps1"
+
+				Set-GlobalServiceValues -GlobalServiceContainer $using:SettingsObject -ServiceKey "apiManagement" -ResourceServiceContainer $_
+
 				$threadResourceGroupName = $using:resourceGroupName
 
 				try {
@@ -112,13 +177,18 @@
 					$_.Name = Get-CmAzResourceName -Resource "APImanagementServiceInstance" -Architecture "PaaS" -Region $_.Region -Name $_.Name
 
 					Write-Verbose "Creating ApiManagementService $($_.Name)"
+
+					$apiManagementServiceTag = New-Object "System.Collections.Generic.Dictionary``2[System.String,System.String]"
+					$apiManagementServiceTag.Add("cm-service", $_.service.publish.apiManagement)
+
 					New-AzApiManagement `
 						-ResourceGroupName $threadResourceGroupName `
 						-Location $_.Region `
 						-Name $_.Name `
 						-Organization $_.Organization `
 						-AdminEmail $_.AdminEmail `
-						-Sku $_.Sku
+						-Sku $_.Sku `
+						-Tag $apiManagementServiceTag
 
 					while (!(([system.uri](Get-AzApiManagement -Name $_.Name -ResourceGroupName $threadResourceGroupName).RuntimeUrl).Host)) {
 						Start-Sleep -minutes 5
@@ -126,7 +196,7 @@
 					}
 				}
 				catch {
-					Write-Error "An error occurred, The API service is potentially already present" -ErrorAction Continue
+					Write-Warning "An error occurred, The API service is potentially already present $PSItem"
 				}
 
 				$url = ([system.uri](Get-AzApiManagement -Name $_.Name -ResourceGroupName $threadResourceGroupName).RuntimeUrl).Host
@@ -243,7 +313,7 @@
 
 				$SettingsObject.appServicePlans.webapps | Where-Object { $_.backendpool -match $backEndPool.Name } | ForEach-Object {
 
-					$backEndDomainName = (Get-AzWebApp -ResourceGroupName $resourceGroupName -Name  $_.generatedName).DefaultHostName
+					$backEndDomainName = (Get-AzWebApp -ResourceGroupName $resourceGroupName -Name $_.generatedName).DefaultHostName
 
 					$backendHostHeader = $backEndDomainName
 
@@ -321,16 +391,15 @@
 
 			# Create Frontdoor
 			Write-Verbose "Initiating creation of Azure frontdoor"
-			$newAzFrontdoor = New-AzFrontDoor `
+			New-AzFrontDoor `
 				-Name $frontdoorName `
 				-ResourceGroupName $resourceGroupName `
 				-FrontendEndpoint $frontendEndpointObjectArray `
 				-BackendPool $backEndPoolObjectArray `
 				-HealthProbeSetting $healthProbeSettingObjectArray `
 				-LoadBalancingSetting $loadBalancingSettingObjectArray `
-				-RoutingRule $routingRuleObjectArray
-
-			$newAzFrontdoor | Write-Verbose
+				-RoutingRule $routingRuleObjectArray `
+				-Tag @{ "cm-service" = $SettingsObject.service.publish.frontdoor }
 
 			if ($SettingsObject.frontDoor.customDomains.domainName) {
 
@@ -347,29 +416,7 @@
 				}
 			}
 
-			if ($SettingsObject.contentDeliveryNetwork.Name) {
-
-				$resourceType = (Get-AzResource -ResourceGroupName $resourceGroupName -Name $SettingsObject.contentDeliveryNetwork.attachObjectName -ErrorAction SilentlyContinue).ResourceType
-
-				Write-Verbose "Resource type identified to be : $($resourceType)"
-
-				if ($resourceType -eq "Microsoft.Storage/storageAccounts") {
-					$domain = ([system.uri](New-AzStorageContext -StorageAccountName  $SettingsObject.contentDeliveryNetwork.attachObjectName).BlobEndPoint).Host
-				}
-				elseif ($resourceType -eq "Microsoft.Web/sites") {
-					$domain = (Get-AzWebApp -ResourceGroupName $resourceGroupName -Name  $SettingsObject.contentDeliveryNetwork.attachObjectName).DefaultHostName
-				}
-				else {
-					Write-Verbose "$($SettingsObject.contentDeliveryNetwork.attachObjectName) not found "
-					break
-				}
-
-				# Create a new profile and endpoint in one line
-				$cdn = New-AzCdnProfile -ProfileName $SettingsObject.contentDeliveryNetwork.Name -ResourceGroupName $resourceGroupName -Sku $SettingsObject.contentDeliveryNetwork.Sku -Location $SettingsObject.location | `
-				New-AzCdnEndpoint -EndpointName $SettingsObject.contentDeliveryNetwork.Name -OriginName $SettingsObject.contentDeliveryNetwork.attachObjectName -OriginHostName $domain
-
-				$cdn | Write-Verbose
-			}
+			Set-DeployedResourceTags -TagSettingsFile $TagSettingsFile -ResourceGroupIds $resourceGroupName
 
 			Write-Verbose "Finished!"
 		}

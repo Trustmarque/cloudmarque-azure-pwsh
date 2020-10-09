@@ -18,6 +18,9 @@
             "copy": {
                 "name": "resourceGroupCopy",
                 "count": "[length(parameters('networkingArrayObject'))]"
+            },
+            "tags": {
+                "cm-service": "[parameters('networkingArrayObject')[copyIndex('resourceGroupCopy')].resourceGroup.service.publish.resourceGroup]"
             }
         },
         {
@@ -82,6 +85,9 @@
                             "apiVersion": "2019-12-01",
                             "name": "[parameters('VnetArmObject')[copyIndex('vnetCopy')].vnetName]",
                             "location": "[if(not(empty(parameters('VnetArmObject')[copyIndex('vnetCopy')].location)), parameters('VnetArmObject')[copyIndex('vnetCopy')].location, resourceGroup().location)]",
+                            "tags": {
+                                "cm-service": "[parameters('VnetArmObject')[copyIndex('vnetCopy')]['service']['publish']['vnet']]"
+                            },
                             "copy": {
                                 "name": "vnetCopy",
                                 "count": "[length(parameters('VnetArmObject'))]"
@@ -112,6 +118,9 @@
                             "type": "Microsoft.Network/routeTables",
                             "apiVersion": "2019-12-01",
                             "location": "[if(not(empty(parameters('RouteTableArmObject')[copyIndex('routeTableCopy')].location)), parameters('RouteTableArmObject')[copyIndex('routeTableCopy')].location, resourceGroup().location)]",
+                            "tags": {
+                                "cm-service": "[parameters('RouteTableArmObject')[copyIndex('routeTableCopy')]['service']['publish']['routeTable']]"
+                            },
                             "copy": {
                                 "name": "routeTableCopy",
                                 "count": "[length( parameters('RouteTableArmObject'))]"
@@ -142,6 +151,9 @@
                             "copy": {
                                 "name": "nsgCopy",
                                 "count": "[length( parameters('NsgArmObject'))]"
+                            },
+                            "tags": {
+                                "cm-service": "[parameters('NsgArmObject')[copyIndex('nsgCopy')]['service']['publish']['networkSecurityGroup']]"
                             },
                             "properties": {
                                 "copy": [
