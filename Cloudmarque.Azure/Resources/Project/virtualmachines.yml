@@ -25,6 +25,7 @@ groups:
         size: Standard_B1s
         updateGroup: Critical
         updateFrequency: Daily
+        AzureDiskEncryption: true
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -50,6 +51,7 @@ groups:
         size: Standard_B1s
         updateGroup: Recommended
         updateFrequency: Friday
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -74,6 +76,7 @@ groups:
         size: Standard_B1s
         updateGroup: Critical
         updateFrequency: Daily
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -99,6 +102,7 @@ groups:
         size: Standard_B1s
         updateGroup: Recommended
         updateFrequency: Friday
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -124,6 +128,7 @@ groups:
         size: Standard_B1s
         updateGroup: Recommended
         updateFrequency: Friday
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -156,6 +161,7 @@ groups:
         size: Standard_B1s
         updateGroup: All
         updateFrequency: Daily
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -181,6 +187,7 @@ groups:
         size: Standard_B1s
         updateGroup: All
         updateFrequency: Daily
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -206,6 +213,7 @@ groups:
         size: Standard_B1s
         updateGroup: All
         updateFrequency: Daily
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -231,6 +239,7 @@ groups:
         size: Standard_B1s
         updateGroup: All
         updateFrequency: Daily
+        AzureDiskEncryption: false
         imageReference:
           publisher: MicrosoftWindowsDesktop
           offer: Windows-10
@@ -260,6 +269,7 @@ groups:
           name: "centos-8-3-free"
           publisher: "cognosys"
           product: "centos-8-3-free"
+        AzureDiskEncryption: true
         imageReference:
           publisher: cognosys
           offer: centos-8-3-free

@@ -311,6 +311,7 @@
                             }
                         },
                         {
+                            "condition": "[equals(parameters('VM').AzureDiskEncryption, true())]",
                             "type": "Microsoft.Compute/virtualMachines/extensions",
                             "name": "[concat(parameters('VM').fullName, '/DiskEncryption')]",
                             "apiVersion": "2019-03-01",

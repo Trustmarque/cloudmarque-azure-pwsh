@@ -169,6 +169,10 @@
 					Write-Verbose "Building data disks..."
 					$virtualMachine.DataDisks = @()
 
+					if(!$virtualMachine.AzureDiskEncryption){
+						$virtualMachine.AzureDiskEncryption = $false
+					}
+
 					for ($i = 0; $i -lt $virtualMachine.dataDiskSizes.count; $i++) {
 
 						$virtualMachine.dataDisks += @{
