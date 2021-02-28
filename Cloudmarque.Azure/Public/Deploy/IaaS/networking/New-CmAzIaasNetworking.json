@@ -6,11 +6,14 @@
             "type": "Array"
         }
     },
+    "variables": {
+        "now": "[utcnow()]"
+    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('VNetAndRouteTable', copyIndex('NetworkingArrayObjectCopy'), '_', utcNow())]",
+            "name": "[concat('VNetAndRouteTable', copyIndex('NetworkingArrayObjectCopy'), '_', variables('now'))]",
             "resourceGroup": "[parameters('NetworkingArrayObject')[copyIndex('NetworkingArrayObjectCopy')].resourceGroup.Name]",
             "copy": {
                 "name": "NetworkingArrayObjectCopy",

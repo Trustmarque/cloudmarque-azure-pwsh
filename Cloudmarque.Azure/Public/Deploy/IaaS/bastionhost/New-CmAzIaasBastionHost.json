@@ -13,11 +13,14 @@
             "type": "Object"
         }
     },
+    "variables": {
+        "now": "[utcnow()]"
+    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('BastionHostCopy', copyIndex('BastionHostCopy'), utcnow())]",
+            "name": "[concat('BastionHostCopy', copyIndex('BastionHostCopy'), variables('now'))]",
             "copy": {
                 "name": "BastionHostCopy",
                 "count": "[length(parameters('BastionHosts'))]"

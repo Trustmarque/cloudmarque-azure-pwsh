@@ -6,11 +6,14 @@
             "type": "Array"
         }
     },
+    "variables": {
+        "now": "[utcnow()]"
+    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('VnetPeering', copyIndex('VnetPeeringsObjectArrayCopy'), '_', utcNow())]",
+            "name": "[concat('VnetPeering', copyIndex('VnetPeeringsObjectArrayCopy'), '_', variables('now'))]",
             "resourceGroup": "[parameters('VnetPeeringsObjectArray')[copyIndex('VnetPeeringsObjectArrayCopy')].sourceVnetRg]",
             "copy": {
                 "name": "VnetPeeringsObjectArrayCopy",

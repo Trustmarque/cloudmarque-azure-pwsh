@@ -19,6 +19,9 @@
             "type": "array"
         }
     },
+    "variables": {
+        "now": "[utcnow()]"
+    },
     "resources": [
         {
             "type": "Microsoft.Compute/galleries",
@@ -32,7 +35,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('ImageDefinition', copyIndex('ImageDefinitionsCopy'), '_', utcNow())]",
+            "name": "[concat('ImageDefinition', copyIndex('ImageDefinitionsCopy'), '_', variables('now'))]",
             "copy": {
                 "name": "ImageDefinitionsCopy",
                 "count": "[length(parameters('ImageDefinitions'))]"

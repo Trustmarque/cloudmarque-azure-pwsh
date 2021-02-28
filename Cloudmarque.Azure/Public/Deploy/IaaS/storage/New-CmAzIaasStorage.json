@@ -6,11 +6,14 @@
             "type": "array"
         }
     },
+    "variables": {
+        "now": "[utcnow()]"
+    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('StorageAccount', copyIndex('StorageCopy'), '_', utcNow())]",
+            "name": "[concat('StorageAccount', copyIndex('StorageCopy'), '_', variables('now'))]",
             "copy": {
                 "name": "StorageCopy",
                 "count": "[length(parameters('StorageSettingsArray'))]"

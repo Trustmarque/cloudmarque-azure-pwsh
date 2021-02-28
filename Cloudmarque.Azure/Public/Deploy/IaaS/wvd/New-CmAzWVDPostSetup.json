@@ -11,13 +11,14 @@
         }
     },
     "variables": {
-       "LogAnalyticsIDExists": "[not(equals(parameters('LogAnalyticsID'), 'none'))]"
+       "LogAnalyticsIDExists": "[not(equals(parameters('LogAnalyticsID'), 'none'))]",
+       "now": "[utcnow()]"
     },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('WVDHostPostSetup', copyIndex('WVDHostPostSetup'), '_', utcNow())]",
+            "name": "[concat('WVDHostPostSetup', copyIndex('WVDHostPostSetup'), '_', variables('now'))]",
             "resourceGroup": "[parameters('Environments')[copyIndex('WVDHostPostSetup')].resourceGroupName]",
             "properties": {
                 "expressionEvaluationOptions": {
