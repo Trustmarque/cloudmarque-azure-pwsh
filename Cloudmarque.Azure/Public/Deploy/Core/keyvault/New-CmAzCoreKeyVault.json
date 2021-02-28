@@ -12,12 +12,9 @@
             "type": "Object"
         }
     },
-    "variables": {
-        "now": "[utcnow()]"
-    },
     "resources": [
         {
-            "name": "[concat('AllKeyvaults_', variables('now'))]",
+            "name": "[concat(deployment().name, '_AllKeyvaults')]",
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
             "properties": {

@@ -10,15 +10,12 @@
             "defaultValue": "https://catalogartifact.azureedge.net/publicartifacts/Microsoft.Hostpool-ARM-1.0.14-preview/managedDisks-"
         }
     },
-    "variables": {
-        "now": "[utcnow()]"
-    },
     "resources": [
         // Microsoft Linked Template
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('WVDhostSetup', copyIndex('WVDHostsCopy'), '_', variables('now'))]",
+            "name": "[concat(deployment().name, '_WVDhostSetup', copyIndex('WVDHostsCopy'))]",
             "resourceGroup": "[parameters('Environments')[copyIndex('WVDHostsCopy')].resourceGroupName]",
             "properties": {
                 "mode": "Incremental",

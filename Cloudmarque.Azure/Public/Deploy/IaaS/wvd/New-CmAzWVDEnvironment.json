@@ -17,8 +17,7 @@
     "variables": {
         "logAnalyticsRetentionPolicy": {
             "enabled": true,
-            "days": 30,
-            "now": "[utcnow()]"
+            "days": 30
         }
     },
     "resources": [
@@ -38,7 +37,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Resources/resourceGroups', parameters('Environments')[copyIndex('WVDEnvironmentCopy')].resourceGroupName)]"
             ],
-            "name": "[concat('WVD', copyIndex('WVDEnvironmentCopy'), '_', variables('now'))]",
+            "name": "[concat(deployment().name, '_WVD', copyIndex('WVDEnvironmentCopy'))]",
             "resourceGroup": "[parameters('Environments')[copyIndex('WVDEnvironmentCopy')].resourceGroupName]",
             "properties": {
                 "expressionEvaluationOptions": {

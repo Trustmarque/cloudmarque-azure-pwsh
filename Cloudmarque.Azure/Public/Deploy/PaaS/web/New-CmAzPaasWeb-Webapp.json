@@ -6,14 +6,11 @@
             "type": "Array"
         }
     },
-    "variables": {
-        "now": "[utcnow()]"
-    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('AppService', copyIndex('AppServiceDetailsCopy'), '_', variables('now'))]",
+            "name": "[concat(deployment().name, '_AppService', copyIndex('AppServiceDetailsCopy'))]",
             "resourceGroup": "[parameters('AppServiceDetails')[copyIndex('AppServiceDetailsCopy')].resourceGroupName]",
             "copy": {
                 "name": "AppServiceDetailsCopy",
@@ -57,7 +54,7 @@
                         {
                             "type": "Microsoft.Resources/Deployments",
                             "apiVersion": "2019-10-01",
-                            "name": "[concat('WebApp', copyIndex('WebAppCopy'), '_', variables('now'))]",
+                            "name": "[concat(deployment().name, '_WebApp', copyIndex('WebAppCopy'))]",
                             "resourceGroup": "[resourceGroup().name]",
                             "copy": {
                                 "name": "WebAppCopy",

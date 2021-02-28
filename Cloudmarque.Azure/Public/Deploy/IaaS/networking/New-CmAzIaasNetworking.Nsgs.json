@@ -16,8 +16,7 @@
         }
     },
     "variables": {
-        "now": "[utcnow()]",
-        "networkWatchersDeploymentName" : "[concat('AllNetworkWatchers_', variables('now'))]"
+        "networkWatchersDeploymentName" : "[concat(deployment().name, '_AllNetworkWatchers')]"
     },
     "resources": [
         {
@@ -63,7 +62,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('Nsg', copyIndex('NsgCopy'), '_', variables('now'))]",
+            "name": "[concat(deployment().name, '_Nsg', copyIndex('NsgCopy'))]",
             "resourceGroup": "[parameters('Nsgs')[copyIndex('Nsgs')].resourceGroup.name]",
             "dependsOn": [
                 "[variables('networkWatchersDeploymentName')]"
@@ -177,7 +176,7 @@
                         {
                             "type": "Microsoft.Resources/Deployments",
                             "apiVersion": "2019-10-01",
-                            "name": "[concat('AllFlowLogs_Nsg_', parameters('NsgIndex'), '_', variables('now'))]",
+                            "name": "[concat(deployment().name, '_AllFlowLogs_Nsg', parameters('NsgIndex'))]",
                             "dependsOn": [
                                 "[parameters('Nsg').nsgName]"
                             ],
