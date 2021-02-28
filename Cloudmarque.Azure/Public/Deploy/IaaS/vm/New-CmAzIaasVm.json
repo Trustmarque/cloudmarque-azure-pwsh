@@ -64,7 +64,7 @@
             "sku": "[parameters('AvailabilitySets')[copyIndex('AvailabilitySetsCopy')].sku]"
         },
         {
-            "name": "[concat('VirtualMachineLevelTemplates', copyIndex('VirtualMachinesCopy'))]",
+            "name": "[concat('VirtualMachine', copyIndex('VirtualMachinesCopy'), '_', utcNow())]",
             "type": "Microsoft.Resources/Deployments",
             "resourceGroup": "[parameters('VirtualMachines')[copyIndex('VirtualMachinesCopy')].resourceGroupName]",
             "apiVersion": "2019-10-01",

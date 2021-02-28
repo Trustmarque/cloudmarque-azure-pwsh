@@ -14,7 +14,6 @@
             "defaultValue": "none"
         }
     },
-    "functions": [],
     "variables": {
         "logAnalyticsRetentionPolicy": {
             "enabled": true,
@@ -33,10 +32,12 @@
             }
         },
         {
-            "type": "Microsoft.Resources/deployments",
+            "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "dependsOn": ["[resourceId('Microsoft.Resources/resourceGroups', parameters('Environments')[copyIndex('WVDEnvironmentCopy')].resourceGroupName)]"],
-            "name": "[concat('WVDhostpool-Setup_', parameters('Environments')[copyIndex('WVDEnvironmentCopy')].workspaceName)]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/resourceGroups', parameters('Environments')[copyIndex('WVDEnvironmentCopy')].resourceGroupName)]"
+            ],
+            "name": "[concat('WVD', copyIndex('WVDEnvironmentCopy'), '_', utcNow())]",
             "resourceGroup": "[parameters('Environments')[copyIndex('WVDEnvironmentCopy')].resourceGroupName]",
             "properties": {
                 "expressionEvaluationOptions": {
@@ -46,8 +47,6 @@
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
                     "contentVersion": "1.0.0.0",
-                    "parameters": {},
-                    "variables": {},
                     "resources": [
                         {
                             "type": "Microsoft.DesktopVirtualization/hostPools",
@@ -213,6 +212,5 @@
                 "count": "[length(parameters('Environments'))]"
             }
         }
-    ],
-    "outputs": {}
+    ]
 }

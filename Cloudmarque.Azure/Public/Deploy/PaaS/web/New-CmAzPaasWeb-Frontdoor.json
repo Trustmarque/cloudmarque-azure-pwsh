@@ -9,8 +9,6 @@
             "type": "String"
         }
     },
-    "variables": {
-    },
     "resources": [
         {
             "apiVersion": "2020-01-01",
@@ -97,6 +95,5 @@
                 "enabledState": "Enabled"
             }
         }
-    ],
-    "outputs": {}
+    ]
 }

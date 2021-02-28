@@ -6,13 +6,11 @@
             "type": "Array"
         }
     },
-    "variables": {
-    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('Cm_ApiManagementService_', copyIndex('ApiManagementServicesCopy'))]",
+            "name": "[concat('ApiManagementService', copyIndex('ApiManagementServicesCopy'), '_', utcNow())]",
             "resourceGroup": "[parameters('ApiManagementServices')[copyIndex('ApiManagementServicesCopy')].resourceGroupName]",
             "copy": {
                 "name": "ApiManagementServicesCopy",
@@ -36,8 +34,6 @@
                             "type": "object"
                         }
                     },
-                    "variables": {
-                    },
                     "resources": [
                         {
                             "type": "Microsoft.ApiManagement/service",
@@ -57,7 +53,5 @@
                 }
             }
         }
-    ],
-    "outputs": {
-    }
+    ]
 }

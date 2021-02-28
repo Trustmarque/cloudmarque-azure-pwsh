@@ -10,7 +10,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('Cm_vnet_peerings_',copyIndex('VnetPeeringsObjectArrayCopy'))]",
+            "name": "[concat('VnetPeering', copyIndex('VnetPeeringsObjectArrayCopy'), '_', utcNow())]",
             "resourceGroup": "[parameters('VnetPeeringsObjectArray')[copyIndex('VnetPeeringsObjectArrayCopy')].sourceVnetRg]",
             "copy": {
                 "name": "VnetPeeringsObjectArrayCopy",

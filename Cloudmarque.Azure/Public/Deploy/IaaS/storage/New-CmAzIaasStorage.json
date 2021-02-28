@@ -6,12 +6,11 @@
             "type": "array"
         }
     },
-    "variables": {},
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('CmAz_', parameters('StorageSettingsArray')[copyIndex('StorageCopy')].storageAccountName)]",
+            "name": "[concat('StorageAccount', copyIndex('StorageCopy'), '_', utcNow())]",
             "copy": {
                 "name": "StorageCopy",
                 "count": "[length(parameters('StorageSettingsArray'))]"
@@ -192,6 +191,5 @@
                 }
             }
         }
-    ],
-    "outputs": {}
+    ]
 }

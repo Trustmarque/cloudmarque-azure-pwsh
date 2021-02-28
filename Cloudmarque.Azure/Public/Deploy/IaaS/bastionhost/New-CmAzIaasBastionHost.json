@@ -17,7 +17,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat(parameters('BastionHosts')[copyIndex('BastionHostCopy')].bastionHostName, copyIndex('BastionHostCopy'))]",
+            "name": "[concat('BastionHostCopy', copyIndex('BastionHostCopy'), utcnow())]",
             "copy": {
                 "name": "BastionHostCopy",
                 "count": "[length(parameters('BastionHosts'))]"
@@ -36,7 +36,7 @@
                 },
                 "mode": "Incremental",
                 "expressionEvaluationOptions": {
-                    "scope": "inner"
+                    "scope": "Inner"
                 },
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",

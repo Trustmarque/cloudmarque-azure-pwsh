@@ -10,7 +10,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[parameters('ConsumptionPlans')[copyIndex('ConsumptionPlansCopy')].name]",
+            "name": "[concat('ConsumptionPlan', copyIndex('ConsumptionPlansCopy'), '_', utcNow())]",
             "resourceGroup": "[parameters('ConsumptionPlans')[copyIndex('ConsumptionPlansCopy')].resourceGroupName]",
             "copy": {
                 "name": "ConsumptionPlansCopy",

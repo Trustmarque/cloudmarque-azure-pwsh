@@ -10,7 +10,7 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('Cm_network_deployment_',copyIndex('NetworkingArrayObjectCopy'))]",
+            "name": "[concat('VNetAndRouteTable', copyIndex('NetworkingArrayObjectCopy'), '_', utcNow())]",
             "resourceGroup": "[parameters('NetworkingArrayObject')[copyIndex('NetworkingArrayObjectCopy')].resourceGroup.Name]",
             "copy": {
                 "name": "NetworkingArrayObjectCopy",

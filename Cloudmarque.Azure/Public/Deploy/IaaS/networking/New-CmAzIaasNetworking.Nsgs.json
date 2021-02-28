@@ -15,11 +15,14 @@
             "type": "Object"
         }
     },
+    "variables": {
+        "networkWatchersDeploymentName" : "[concat('AllNetworkWatchers_', utcnow())]"
+    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "Cm_networkWatcher_deployment",
+            "name": "[variables('networkWatchersDeploymentName')]",
             "resourceGroup": "[parameters('NetworkWatcherResourceGroupName')]",
             "properties": {
                 "mode": "Incremental",
@@ -59,11 +62,13 @@
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('Cm_network_nsg_deployment', '_', copyIndex('Nsgs'))]",
+            "name": "[concat('Nsg', copyIndex('NsgCopy'), '_', utcnow())]",
             "resourceGroup": "[parameters('Nsgs')[copyIndex('Nsgs')].resourceGroup.name]",
-            "dependsOn": ["Cm_networkWatcher_deployment"],
+            "dependsOn": [
+                "[variables('networkWatchersDeploymentName')]"
+            ],
             "copy": {
-                "name": "Nsgs",
+                "name": "NsgCopy",
                 "count": "[length(parameters('Nsgs'))]"
             },
             "properties": {
@@ -76,10 +81,10 @@
                         "value": "[parameters('NetworkWatcherResourceGroupName')]"
                     },
                     "Nsg": {
-                        "value": "[parameters('Nsgs')[copyIndex('Nsgs')]]"
+                        "value": "[parameters('Nsgs')[copyIndex('NsgCopy')]]"
                     },
                     "NsgIndex": {
-                        "value": "[copyIndex('Nsgs')]"
+                        "value": "[copyIndex('NsgCopy')]"
                     },
                     "Workspace": {
                         "value": "[parameters('Workspace')]"
@@ -171,7 +176,7 @@
                         {
                             "type": "Microsoft.Resources/Deployments",
                             "apiVersion": "2019-10-01",
-                            "name": "[concat('Cm_network_flowLog_deployment_', parameters('NsgIndex'))]",
+                            "name": "[concat('AllFlowLogs_Nsg_', parameters('NsgIndex'), '_', utcNow())]",
                             "dependsOn": [
                                 "[parameters('Nsg').nsgName]"
                             ],

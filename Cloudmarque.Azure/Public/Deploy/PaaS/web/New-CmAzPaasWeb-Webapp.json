@@ -6,16 +6,14 @@
             "type": "Array"
         }
     },
-    "variables": {
-    },
     "resources": [
         {
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[parameters('AppServiceDetails')[copyIndex('appServiceDetailsCopy')].name]",
-            "resourceGroup": "[parameters('AppServiceDetails')[copyIndex('appServiceDetailsCopy')].resourceGroupName]",
+            "name": "[concat('AppService', copyIndex('AppServiceDetailsCopy'), '_', utcNow())]",
+            "resourceGroup": "[parameters('AppServiceDetails')[copyIndex('AppServiceDetailsCopy')].resourceGroupName]",
             "copy": {
-                "name": "appServiceDetailsCopy",
+                "name": "AppServiceDetailsCopy",
                 "count": "[length(parameters('AppServiceDetails'))]"
             },
             "properties": {
@@ -25,7 +23,7 @@
                 },
                 "parameters": {
                     "appServiceObject": {
-                        "Value": "[parameters('AppServiceDetails')[copyIndex('appServiceDetailsCopy')]]"
+                        "Value": "[parameters('AppServiceDetails')[copyIndex('AppServiceDetailsCopy')]]"
                     }
                 },
                 "template": {
@@ -35,8 +33,6 @@
                         "appServiceObject": {
                             "type": "object"
                         }
-                    },
-                    "variables": {
                     },
                     "resources": [
                         {
@@ -58,10 +54,10 @@
                         {
                             "type": "Microsoft.Resources/Deployments",
                             "apiVersion": "2019-10-01",
-                            "name": "[parameters('appServiceObject').webapps[copyIndex('webAppCopy')].name]",
+                            "name": "[concat('WebApp', copyIndex('WebAppCopy'), '_', utcNow())]",
                             "resourceGroup": "[resourceGroup().name]",
                             "copy": {
-                                "name": "webAppCopy",
+                                "name": "WebAppCopy",
                                 "count": "[length(parameters('appServiceObject').webapps)]"
                             },
                             "dependsOn": [
@@ -74,7 +70,7 @@
                                 },
                                 "parameters": {
                                     "webAppObject": {
-                                        "value": "[parameters('appServiceObject').webapps[copyIndex('webAppCopy')]]"
+                                        "value": "[parameters('appServiceObject').webapps[copyIndex('WebAppCopy')]]"
                                     },
                                     "appServicePlanName": {
                                         "value": "[parameters('appServiceObject').Name]"
@@ -200,7 +196,5 @@
                 }
             }
         }
-    ],
-    "outputs": {
-    }
+    ]
 }

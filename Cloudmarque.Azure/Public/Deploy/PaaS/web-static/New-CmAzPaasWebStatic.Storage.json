@@ -32,7 +32,6 @@
                 "supportsHttpsTrafficOnly": true,
                 "largeFileSharesState": "disabled"
             },
-            "dependsOn": [],
             "sku": {
                 "name": "Standard_LRS"
             },

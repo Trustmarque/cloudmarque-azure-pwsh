@@ -10,15 +10,14 @@
             "defaultValue": "none"
         }
     },
-    "functions": [],
     "variables": {
        "LogAnalyticsIDExists": "[not(equals(parameters('LogAnalyticsID'), 'none'))]"
     },
     "resources": [
         {
-            "type": "Microsoft.Resources/deployments",
+            "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
-            "name": "[concat('WVDHost_PostSetup_', parameters('Environments')[copyIndex('WVDHostPostSetup')].resourceGroupName)]",
+            "name": "[concat('WVDHostPostSetup', copyIndex('WVDHostPostSetup'), '_', utcNow())]",
             "resourceGroup": "[parameters('Environments')[copyIndex('WVDHostPostSetup')].resourceGroupName]",
             "properties": {
                 "expressionEvaluationOptions": {
@@ -50,7 +49,6 @@
                             "type": "Bool"
                         }
                     },
-                    "variables": {},
                     "resources": [
                         {
                             "type": "Microsoft.Compute/virtualMachines",
@@ -109,6 +107,5 @@
                 "count": "[length(parameters('Environments'))]"
             }
         }
-    ],
-    "outputs": {}
+    ]
 }

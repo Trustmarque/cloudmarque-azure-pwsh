@@ -14,7 +14,7 @@
     },
     "resources": [
         {
-            "name": "[concat('KeyvaultTemplates', copyIndex('KeyVaultCopy'))]",
+            "name": "[concat('AllKeyvaults_', utcNow())]",
             "type": "Microsoft.Resources/Deployments",
             "apiVersion": "2019-10-01",
             "properties": {
